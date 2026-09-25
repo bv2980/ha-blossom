@@ -2,12 +2,80 @@
   "config": {
     "step": {
       "user": {
-        "title": "Blossom Energy installation test",
-        "description": "Version 0.1.0 checks that Home Assistant can install and load this integration. It does not connect to Blossom, request credentials, create sensors or control charging. Submit to create an installation-test entry."
+        "title": "Sign in to Blossom Energy",
+        "description": "Read-only development version. Sign in with your Blossom email and password. The password is used only for this login; only a refresh token is stored locally. Google/Apple login, MFA and CAPTCHA are not supported by this experimental web-login method.",
+        "data": {
+          "email": "Email",
+          "password": "Password"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Sign in to Blossom again",
+        "description": "Use the same Blossom account. Your existing installation and card selection will be retained.",
+        "data": {
+          "email": "Email",
+          "password": "Password"
+        }
+      },
+      "scope": {
+        "title": "Choose your account membership and home installation",
+        "description": "Select the member/company relationship and the installation that belong together. IDs are shown to distinguish similar names. No charging settings will be changed.",
+        "data": {
+          "member_id": "Membership",
+          "installation_id": "Home installation"
+        }
+      },
+      "card": {
+        "title": "Choose your Blossom card",
+        "description": "This selection is saved for future authorization features. This version only reads data and sends no charging commands. Recent sessions can include home and public sessions and are not filtered to this card.",
+        "data": {
+          "card_id": "Charging card"
+        }
       }
     },
+    "error": {
+      "invalid_auth": "Sign-in failed or requires additional verification. Check your credentials and sign in to the Blossom website if needed. No automated MFA/CAPTCHA bypass is attempted.",
+      "cannot_connect": "Cannot reach Blossom. Try again later.",
+      "rate_limited": "Blossom is limiting requests. Wait several minutes before trying again.",
+      "scope_denied": "The selected account/installation is not accessible. Check your selections.",
+      "unsupported_response": "Blossom returned an unsupported response. Do not share tokens or raw account data; report the step where this occurred.",
+      "storage_failed": "Home Assistant could not store the token. Check storage and try again.",
+      "no_cards": "No available charging cards were returned for this selection."
+    },
     "abort": {
-      "single_instance_allowed": "The installation-test entry already exists."
+      "already_configured": "This Blossom account is already configured.",
+      "wrong_account": "Sign in with the account originally configured for this entry.",
+      "reauth_successful": "Sign-in renewed successfully."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "last_update": {
+        "name": "Last successful update"
+      },
+      "cards": {
+        "name": "Available charging cards"
+      },
+      "recent_sessions": {
+        "name": "Recent sessions (maximum 20)"
+      },
+      "last_session_start": {
+        "name": "Last completed session start"
+      },
+      "last_session_energy": {
+        "name": "Last completed session energy"
+      },
+      "last_session_duration": {
+        "name": "Last completed session duration"
+      },
+      "selected_card": {
+        "name": "Selected charging card"
+      }
+    },
+    "button": {
+      "refresh": {
+        "name": "Refresh Blossom data"
+      }
     }
   }
 }

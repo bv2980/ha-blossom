@@ -1,0 +1,81 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Aanmelden bij Blossom Energy",
+        "description": "Alleen-lezen testversie. Meld aan met je Blossom-e-mailadres en wachtwoord. Het wachtwoord wordt alleen voor deze aanmelding gebruikt; alleen een refresh-token wordt lokaal opgeslagen. Google/Apple, MFA en CAPTCHA worden niet ondersteund door deze experimentele webaanmelding.",
+        "data": {
+          "email": "E-mailadres",
+          "password": "Wachtwoord"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Opnieuw aanmelden bij Blossom",
+        "description": "Gebruik hetzelfde Blossom-account. Je installatie- en kaartkeuze blijven behouden.",
+        "data": {
+          "email": "E-mailadres",
+          "password": "Wachtwoord"
+        }
+      },
+      "scope": {
+        "title": "Kies je accountlidmaatschap en thuisinstallatie",
+        "description": "Kies het lidmaatschap/bedrijf en de installatie die bij elkaar horen. De IDs helpen gelijknamige keuzes onderscheiden. Er worden geen laadinstellingen gewijzigd.",
+        "data": {
+          "member_id": "Lidmaatschap",
+          "installation_id": "Thuisinstallatie"
+        }
+      },
+      "card": {
+        "title": "Kies je Blossom-laadkaart",
+        "description": "Deze keuze wordt bewaard voor toekomstige autorisatie. Deze versie leest alleen gegevens en verstuurt geen laadcommando’s. Recente sessies kunnen thuis- en publieke sessies bevatten en worden niet op deze kaart gefilterd.",
+        "data": {
+          "card_id": "Laadkaart"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Aanmelden mislukt of extra verificatie nodig. Controleer je gegevens en meld zo nodig aan op de Blossom-website. MFA/CAPTCHA worden niet automatisch omzeild.",
+      "cannot_connect": "Blossom is niet bereikbaar. Probeer later opnieuw.",
+      "rate_limited": "Blossom beperkt het aantal aanvragen. Wacht enkele minuten.",
+      "scope_denied": "Het gekozen account of de installatie is niet toegankelijk. Controleer je keuzes.",
+      "unsupported_response": "Blossom gaf een onverwacht antwoord. Deel geen tokens of ruwe accountgegevens; meld bij welke stap dit gebeurt.",
+      "storage_failed": "Home Assistant kon het token niet opslaan. Controleer de opslag en probeer opnieuw.",
+      "no_cards": "Geen beschikbare laadkaarten gevonden voor deze keuze."
+    },
+    "abort": {
+      "already_configured": "Dit Blossom-account is al ingesteld.",
+      "wrong_account": "Meld aan met het oorspronkelijk ingestelde Blossom-account.",
+      "reauth_successful": "Aanmelding succesvol vernieuwd."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "last_update": {
+        "name": "Laatste geslaagde update"
+      },
+      "cards": {
+        "name": "Beschikbare laadkaarten"
+      },
+      "recent_sessions": {
+        "name": "Recente sessies (maximaal 20)"
+      },
+      "last_session_start": {
+        "name": "Laatste afgeronde sessie gestart"
+      },
+      "last_session_energy": {
+        "name": "Energie laatste afgeronde sessie"
+      },
+      "last_session_duration": {
+        "name": "Duur laatste afgeronde sessie"
+      },
+      "selected_card": {
+        "name": "Gekozen laadkaart"
+      }
+    },
+    "button": {
+      "refresh": {
+        "name": "Blossom-gegevens vernieuwen"
+      }
+    }
+  }
+}

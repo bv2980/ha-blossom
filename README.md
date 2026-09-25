@@ -1,81 +1,119 @@
 # Blossom Energy for Home Assistant
 
-Unofficial custom integration, maintained by bv2980. Not affiliated with Blossom.
+Unofficial custom integration maintained by **bv2980**. Not affiliated with Blossom.
 
-## Status: 0.1.0 installation test
+## Version 0.2.0: read-only development milestone
 
-This development milestone only tests discovery, UI setup, loading and unloading.
-It does not authenticate, retrieve sessions, create entities or control charging.
-Target for the first manual acceptance test: Home Assistant Core 2026.9.3 on HAOS.
-Live HA acceptance testing is still pending; this is not a public-ready release.
+Sign in with email/password, explicitly select membership, installation and card,
+and retrieve up to 20 recent sessions. No charging, card-management or energy-management
+commands are implemented. Compatibility target: Home Assistant Core **2026.9.3** or newer.
 
-## Architecture
+This is experimental. Automated tests use synthetic data. Successful authentication
+and the returned data must still be checked against your own account in HA.
 
-- `custom_components/blossom_energy/`: Home Assistant lifecycle and UI.
-- A separate asynchronous Blossom client will be added with authentication.
-- Session entities will share a data update coordinator.
-- Vehicle-specific authorization rules belong in user automations, not this integration.
-- Account IDs, credentials, installation IDs and card IDs must never be hardcoded.
+## Install or update through HACS
 
-The manifest's cloud-polling classification describes the planned integration.
-There is no polling or external traffic in this milestone.
+1. In HACS > three-dot menu > Custom repositories, add
+   `https://github.com/bv2980/ha-blossom` with type **Integration**.
+2. Download version **0.2.0**, then restart Home Assistant Core.
+3. If upgrading from 0.1.0, delete only the **Blossom Energy — installation test**
+   entry under Settings > Devices & services. Keep the integration installed in HACS.
+   The old test entry contains no credentials or entities; it has no account to migrate.
+4. Add **Blossom Energy** under Settings > Devices & services > Add integration.
+5. Enter your Blossom email/password locally in HA. Select the membership and home
+   installation that belong together, then select your charging card.
 
-## Install with HACS
+No YAML, shell commands, external service or manual dependency installation is needed.
+One installation per Blossom account is currently supported. Different accounts can
+have separate entries and token stores. To change membership/installation/card in this
+milestone, remove the entry and configure it again.
 
-1. In HACS, open the three-dot menu > Custom repositories.
-2. Add `https://github.com/bv2980/ha-blossom` with type **Integration**.
-3. Find Blossom Energy and download version **0.1.0**.
-4. Restart Home Assistant Core.
-5. Under Settings > Devices & services > Add integration, search for Blossom Energy.
-6. Submit the installation-test form. Zero devices/entities is expected.
+## What is available
 
-This repository is experimental and is not part of the default HACS catalogue.
-The icon is an original generic charging symbol, not the Blossom company logo.
+- Available-card count, with card labels/types/IDs in attributes.
+- Selected card and whether it still appears in the available-card list.
+- Recent-session count, with a maximum of 20 summaries in the `sessions` attribute.
+- Last **completed** session start, energy (kWh) and duration (minutes), when returned.
+- Last successful update and a manual refresh button.
 
-## Manual installation alternative
+Updates are coordinated every 15 minutes. All sensors share the same data fetch.
+Session history comes from the employee `recent` endpoint using the selected membership
+and installation parameters. It can include home and public charging; it is **not filtered
+to the selected card**. The card selection does not prove vehicle identity or authorize a
+session. No complete archive or monthly total is calculated from this limited window.
+Empty history is valid; last-session measurements are unknown until a completed session
+with the relevant fields exists. Unavailable data is never replaced with zero.
 
-1. Keep a current HA backup.
-2. Copy the `blossom_energy` folder from `custom_components` into your HA configuration
-   directory's `custom_components` folder. On HAOS this is normally
-   `/config/custom_components/blossom_energy/` (also accessible as `/homeassistant`
-   in some apps). Do not overwrite an existing folder with this name without checking it.
-3. Restart Home Assistant Core.
-4. Under Settings > Devices & services > Add integration, search for Blossom Energy.
-5. Read the installation-test screen and submit.
+Cost sensors are deferred: the app distinguishes home compensation, public price and
+VAT. We will verify the desired meaning against actual account data before adding one.
+These session-energy sensors are not cumulative meters for the Energy dashboard.
 
-Do not add anything to configuration.yaml. Do not install Python dependencies manually.
+## Authentication and storage
 
-## Acceptance checks
+The asynchronous API client is isolated from Home Assistant. It follows the web app's
+Auth0 authorization-code + PKCE flow, validates the callback host/path and OAuth state,
+and only sends credentials to the production Auth0 host. It does not fetch the callback
+URL. The password is discarded after login. MFA, CAPTCHA and social login are not
+supported; the integration reports a sign-in error instead of bypassing them.
 
-- The setup screen clearly identifies this as an installation test.
-- Submitting creates the entry without errors. Zero devices/entities is expected.
-- A second attempt to add it is refused.
-- Reload the entry and check HA logs for errors from `blossom_energy`.
-- Restart HA and confirm the entry loads again.
-- Delete the entry and confirm no integration error appears.
+This first-party web-login flow is **not a confirmed supported third-party contract**.
+Blossom can change it. A supported browser OAuth flow remains the preferred future route
+if Blossom supplies a suitable client registration and redirect URI.
 
-Home Assistant may warn that a custom integration has not been tested by Home Assistant;
-that generic warning is expected and is different from an exception or setup failure.
+Access tokens stay in memory. Refresh tokens are saved with Home Assistant's atomic
+storage helper under a separate random key for each entry. This storage is local, not
+an encrypted vault: protect HA access and backups. Token refresh is serialized, and a
+rotated token is saved before further API requests. An ambiguous refresh timeout requires
+a new sign-in instead of blindly replaying a potentially consumed token. A sudden process
+or disk failure during rotation may also require signing in again.
 
-Before milestone 2, delete this installation-test entry. The authenticated version will
-use verified account identity and support account-based setup instead of this temporary
-single installation-test entry. No user data or credentials exist to migrate in 0.1.0.
+No credentials, tokens, raw responses or authentication URLs are logged. Deleting an entry
+removes its token store; it does not revoke the login at Blossom. Never upload `.storage`,
+HA backups, tokens or real API responses to GitHub.
 
-## Rollback
+## Acceptance checks in HA
 
-Delete the test entry under Devices & services. If installed through HACS, remove
-the downloaded integration there and restart Core. For a manual installation, remove only the
-`custom_components/blossom_energy` folder you installed, then restart Core.
+1. Sign in and verify the membership, installation and available cards are yours.
+2. Compare recent session dates, kWh and minutes with the Blossom app. The list can include
+   public charging. View the bounded list under the recent-session sensor's attributes.
+3. Press **Refresh Blossom data**; verify the last successful update changes.
+4. Reload the entry. Confirm entities recover without another password prompt.
+5. At a convenient moment, restart HA; confirm saved tokens restore the connection.
+6. Report the exact user-facing error and the step if something fails, without secrets.
 
-## Next milestones
+The generic HA warning about a custom integration is expected. Setup exceptions are not.
+If no cards are available or the response format changes, setup stops with an explicit
+error. Automatic charging remains outside this release.
 
-1. Validated authentication and account/installation/card selection.
-2. Read-only recent sessions and sensors, with automated tests using synthetic data.
-3. Active sessions and explicit manual authorization.
-4. Separate Tesla automation.
-5. Public distribution documentation and compatibility checks.
+## Architecture and tests
 
-The supplied staging Swagger documentation is incomplete for personal authentication.
-Production authentication and response contracts must be verified before implementing
-those milestones. Reusing the web app's login flow is not yet a confirmed supported
-authentication method for distribution.
+- `api.py`: HA-independent async HTTP, PKCE login, token lifecycle and read-only endpoints.
+- `models.py`: explicit data validation and privacy-conscious session summaries.
+- `config_flow.py`: login, explicit scope/card selection and same-account reauthentication.
+- `coordinator.py`: one shared 15-minute update with standard HA availability/errors.
+- `sensor.py`, `button.py`: read-only UI entities and manual refresh.
+- `__init__.py`: setup, unloading and token cleanup on removal.
+
+Unit tests cover callback validation, credential destinations, token reuse/rotation,
+concurrency, persistence failures, HTTP errors, unknown data shapes and session units.
+GitHub Actions additionally tests setup, entities, reauthentication, reload and removal
+against real HA 2026.9.3 with mocked cloud calls, and runs HA manifest validation.
+
+Local client tests (Python 3.12+): `pytest tests/unit`.
+HA tests require Python 3.14 and `pytest-homeassistant-custom-component==0.13.366`.
+No test needs a real Blossom account.
+
+## Removal and rollback
+
+Remove the entry under Devices & services to remove its entities and local token store.
+Then remove the integration in HACS and restart Core if you want to uninstall it.
+To return to 0.1.0, first remove the authenticated 0.2.0 entry, download 0.1.0 in HACS,
+and restart. Version 0.1.0 cannot load authenticated entries from 0.2.0.
+
+## API reference
+
+Endpoint names were checked against [Blossom staging Swagger](https://stg.api.blossom.be/api/docs)
+and the public production web app on 2026-09-25. All runtime traffic uses production.
+The web app confirms the `start`, `end`, `kwh` and minute-based `duration` fields and
+paginated `{data, meta}` history. The implementation deliberately rejects unknown shapes.
+The included generic charging icon is original, not Blossom's company logo.

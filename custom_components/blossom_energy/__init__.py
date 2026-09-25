@@ -1,14 +1,44 @@
-"""Blossom Energy integration: installation-only development milestone."""
+"""Blossom Energy read-only integration."""
 
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ConfigEntryAuthFailed
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.storage import Store
+
+from .api import BlossomClient, Tokens
+from .coordinator import BlossomCoordinator
+
+PLATFORMS = [Platform.SENSOR, Platform.BUTTON]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Load the installation test; no API resources exist at this milestone."""
+    """Load credentials, refresh data once, then set up entities."""
+    if entry.data.get("installation_test"):
+        return True
+    store = Store(hass, 1, entry.data["token_store"])
+    saved = await store.async_load()
+    if not saved or not isinstance(saved.get("refresh_token"), str):
+        raise ConfigEntryAuthFailed("Sign in to Blossom again")
+
+    async def persist(refresh_token):
+        await store.async_save({"refresh_token": refresh_token})
+
+    client = BlossomClient(async_get_clientsession(hass), Tokens(saved["refresh_token"]), persist)
+    coordinator = BlossomCoordinator(hass, entry, client)
+    await coordinator.async_config_entry_first_refresh()
+    entry.runtime_data = coordinator
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Unload the installation test; no resources need cleanup yet."""
-    return True
+    if entry.data.get("installation_test"):
+        return True
+    return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+
+
+async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    if key := entry.data.get("token_store"):
+        await Store(hass, 1, key).async_remove()
