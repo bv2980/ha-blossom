@@ -61,8 +61,8 @@ async def test_start_and_stop_home_charging_buttons(hass, mock_api):
     start_id = registry.async_get_entity_id("button", DOMAIN, f"{entry.unique_id}_start_charging")
     stop_id = registry.async_get_entity_id("button", DOMAIN, f"{entry.unique_id}_stop_charging")
     assert start_id and stop_id
-    assert hass.states[start_id].state != "unavailable"
-    assert hass.states[stop_id].state == "unavailable"
+    assert hass.states.get(start_id).state != "unavailable"
+    assert hass.states.get(stop_id).state == "unavailable"
 
     await hass.services.async_call("button", "press", {"entity_id": start_id}, blocking=True)
     mock_api["start"].assert_awaited_once_with(entry.runtime_data.scope, "card")
@@ -70,8 +70,8 @@ async def test_start_and_stop_home_charging_buttons(hass, mock_api):
     mock_api["active"].return_value = [{"id": "active-session"}]
     await entry.runtime_data.async_refresh()
     await hass.async_block_till_done()
-    assert hass.states[start_id].state == "unavailable"
-    assert hass.states[stop_id].state != "unavailable"
+    assert hass.states.get(start_id).state == "unavailable"
+    assert hass.states.get(stop_id).state != "unavailable"
 
     await hass.services.async_call("button", "press", {"entity_id": stop_id}, blocking=True)
     mock_api["stop"].assert_awaited_once_with(entry.runtime_data.scope)
