@@ -1,0 +1,13 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Blossom Energy installation test",
+        "description": "Version 0.1.0 checks that Home Assistant can install and load this integration. It does not connect to Blossom, request credentials, create sensors or control charging. Submit to create an installation-test entry."
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "The installation-test entry already exists."
+    }
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "domain": "blossom_energy",
+  "name": "Blossom Energy",
+  "codeowners": ["@bv2980"],
+  "config_flow": true,
+  "documentation": "https://github.com/bv2980/ha-blossom",
+  "integration_type": "service",
+  "iot_class": "cloud_polling",
+  "issue_tracker": "https://github.com/bv2980/ha-blossom/issues",
+  "requirements": [],
+  "version": "0.1.0"
+}
