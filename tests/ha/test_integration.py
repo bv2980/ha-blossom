@@ -1,7 +1,8 @@
 """Actual HA config-flow, entity, reload and removal tests with mocked cloud IO."""
 
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
+import pytest
 from homeassistant.config_entries import SOURCE_USER, ConfigEntryState
 from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.helpers.storage import Store
@@ -124,3 +125,11 @@ async def test_installation_test_entry_still_loads(hass):
         assert await hass.config_entries.async_setup(entry.entry_id)
         assert await hass.config_entries.async_unload(entry.entry_id)
         client.assert_not_called()
+
+
+async def test_silent_storage_failure_is_detected(hass):
+    from custom_components.blossom_energy.storage import save_refresh_token
+
+    with patch("homeassistant.helpers.storage.Store.async_save", new_callable=AsyncMock):
+        with pytest.raises(OSError, match="token_storage_failed"):
+            await save_refresh_token(hass, "blossom_energy.synthetic", "synthetic-refresh")

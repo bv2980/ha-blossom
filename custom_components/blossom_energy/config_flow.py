@@ -7,7 +7,6 @@ from homeassistant import config_entries
 from homeassistant.const import CONF_EMAIL, CONF_PASSWORD
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.selector import TextSelector, TextSelectorConfig, TextSelectorType
-from homeassistant.helpers.storage import Store
 
 from .api import (
     AuthError,
@@ -20,6 +19,7 @@ from .api import (
 )
 from .const import DOMAIN
 from .models import scope_choices, session_summaries
+from .storage import save_refresh_token
 
 API_ERRORS = (AuthError, ConnectionError, PermissionError, ProtocolError, RateLimitError)
 
@@ -87,8 +87,10 @@ class BlossomEnergyConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     ):
                         raise PermissionError("scope_changed")
                     await self.client.cards(self.scope)
-                    await Store(self.hass, 1, self.reauth_entry.data["token_store"]).async_save(
-                        {"refresh_token": self.client.tokens.refresh_token}
+                    await save_refresh_token(
+                        self.hass,
+                        self.reauth_entry.data["token_store"],
+                        self.client.tokens.refresh_token,
                     )
                     return self.async_update_reload_and_abort(self.reauth_entry, data_updates={})
                 return await self.async_step_scope()
@@ -166,16 +168,14 @@ class BlossomEnergyConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 key = f"{DOMAIN}.{secrets.token_hex(16)}"
                 try:
                     session_summaries(await self.client.recent_sessions(self.scope))
-                    await Store(self.hass, 1, key).async_save(
-                        {"refresh_token": self.client.tokens.refresh_token}
-                    )
+                    await save_refresh_token(self.hass, key, self.client.tokens.refresh_token)
                     return self.async_create_entry(
                         title="Blossom Energy",
                         data={
                             "account_id": self.user["id"],
                             **self.scope,
                             "card_id": card_id,
-                            "card_label": choices[card_id],
+                            "card_label": choices[card_id][:200],
                             "token_store": key,
                         },
                     )

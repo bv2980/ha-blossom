@@ -5,10 +5,10 @@ from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
-from homeassistant.helpers.storage import Store
 
 from .api import BlossomClient, Tokens
 from .coordinator import BlossomCoordinator
+from .storage import save_refresh_token, token_store
 
 PLATFORMS = [Platform.SENSOR, Platform.BUTTON]
 
@@ -17,13 +17,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Load credentials, refresh data once, then set up entities."""
     if entry.data.get("installation_test"):
         return True
-    store = Store(hass, 1, entry.data["token_store"])
+    store = token_store(hass, entry.data["token_store"])
     saved = await store.async_load()
     if not saved or not isinstance(saved.get("refresh_token"), str):
         raise ConfigEntryAuthFailed("Sign in to Blossom again")
 
     async def persist(refresh_token):
-        await store.async_save({"refresh_token": refresh_token})
+        await save_refresh_token(hass, entry.data["token_store"], refresh_token)
 
     client = BlossomClient(async_get_clientsession(hass), Tokens(saved["refresh_token"]), persist)
     coordinator = BlossomCoordinator(hass, entry, client)
@@ -41,4 +41,4 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
     if key := entry.data.get("token_store"):
-        await Store(hass, 1, key).async_remove()
+        await token_store(hass, key).async_remove()

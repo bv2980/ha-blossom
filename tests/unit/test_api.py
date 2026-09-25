@@ -227,3 +227,12 @@ async def test_connection_exception_is_sanitized():
     with pytest.raises(api.ConnectionError) as error:
         await client.get("/users/current")
     assert "SECRET" not in str(error.value)
+
+
+async def test_manual_requests_cannot_bypass_rate_limit():
+    session = Session([Response(429, headers={"Retry-After": "120"})])
+    client = api.BlossomClient(session, api.Tokens("r", "a", time.monotonic() + 300))
+    for _ in range(2):
+        with pytest.raises(api.RateLimitError):
+            await client.current_user()
+    assert len(session.calls) == 1
