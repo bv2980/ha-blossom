@@ -229,9 +229,16 @@ class BlossomClient:
     ):
         self.session, self.tokens, self.persist = session, tokens, persist
         self._token_lock = asyncio.Lock()
+        self._retry_at = 0.0
+
+    def _check_backoff(self):
+        remaining = self._retry_at - time.monotonic()
+        if remaining > 0:
+            raise RateLimitError(math.ceil(remaining))
 
     async def ensure_token(self, rejected_token=None):
         async with self._token_lock:
+            self._check_backoff()
             if self.tokens.access_token and time.monotonic() < self.tokens.expires_at:
                 if rejected_token is None or rejected_token != self.tokens.access_token:
                     return
@@ -250,6 +257,9 @@ class BlossomClient:
                 ) as response:
                     data = await json_response(response, token=True)
                 updated = Tokens.from_response(data, self.tokens.refresh_token)
+            except RateLimitError as err:
+                self._retry_at = time.monotonic() + err.seconds
+                raise
             except (aiohttp.ClientError, TimeoutError):
                 # Rotation may already have consumed the token: no automatic replay.
                 self.tokens = Tokens("")
@@ -290,6 +300,9 @@ class BlossomClient:
                         await self.ensure_token(rejected_token=access)
                         continue
                     return await json_response(response)
+            except RateLimitError as err:
+                self._retry_at = time.monotonic() + err.seconds
+                raise
             except (aiohttp.ClientError, TimeoutError):
                 raise ConnectionError("api_connection_failed") from None
         raise AuthError("authentication_failed")
