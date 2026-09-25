@@ -1,4 +1,6 @@
-"""Manual data refresh; deliberately no charging command."""
+"""Manual refresh and explicit home-charging controls."""
+
+import asyncio
 
 from homeassistant.components.button import ButtonEntity
 from homeassistant.const import EntityCategory
@@ -64,4 +66,5 @@ class ChargingButton(CoordinatorEntity, ButtonEntity):
                 await self.coordinator.client.stop_home_session(self.coordinator.scope)
         except BlossomError as err:
             raise HomeAssistantError("Blossom rejected the charging command") from err
+        await asyncio.sleep(2)
         await self.coordinator.async_request_refresh()

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.1
+
+- Accept an empty successful response from Blossom charging commands.
+- Wait two seconds before refreshing status after a start or stop command.
+
 ## 0.3.0
 
 - Group all Blossom entities under one Home Assistant service device.

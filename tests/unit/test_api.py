@@ -226,6 +226,19 @@ async def test_home_charging_commands_are_scoped_and_card_is_explicit():
         await client.post("/device/dangerous-command", scope)
 
 
+async def test_empty_successful_command_response_is_valid():
+    class EmptyResponse(Response):
+        async def json(self):
+            raise aiohttp.ContentTypeError(None, (), message="empty body")
+
+    client = api.BlossomClient(
+        Session([EmptyResponse(201)]),
+        api.Tokens("refresh", "access", time.monotonic() + 300),
+    )
+    scope = {"member_id": "member", "installation_id": "installation", "company_id": "company"}
+    assert await client.stop_home_session(scope) == {}
+
+
 @pytest.mark.parametrize(
     "status,exception",
     [

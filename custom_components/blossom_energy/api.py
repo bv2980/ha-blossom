@@ -336,6 +336,9 @@ class BlossomClient:
                     if response.status == 401 and attempt == 0:
                         await self.ensure_token(rejected_token=access)
                         continue
+                    if 200 <= response.status < 300:
+                        # The command endpoints can return an empty successful body.
+                        return {}
                     return await json_response(response)
             except RateLimitError as err:
                 self._retry_at = time.monotonic() + err.seconds
