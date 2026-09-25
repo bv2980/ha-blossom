@@ -39,7 +39,7 @@ async def test_full_setup_entities_reload_and_delete(hass, mock_api):
     saved = await Store(hass, 1, entry.data["token_store"]).async_load()
     assert saved == {"refresh_token": "synthetic-refresh"}
     states = hass.states.async_all("sensor")
-    assert len(states) == 8
+    assert len(states) == 15
     assert any(s.state == "7.5" for s in states)
     assert "synthetic-refresh" not in str(states)
     assert "synthetic-password" not in str(states)
@@ -48,7 +48,7 @@ async def test_full_setup_entities_reload_and_delete(hass, mock_api):
     assert await hass.config_entries.async_reload(entry.entry_id)
     await hass.async_block_till_done()
     assert entry.state == ConfigEntryState.LOADED
-    assert len(hass.states.async_all("sensor")) == 8
+    assert len(hass.states.async_all("sensor")) == 15
     key = entry.data["token_store"]
     await hass.config_entries.async_remove(entry.entry_id)
     await hass.async_block_till_done()

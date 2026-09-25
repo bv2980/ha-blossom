@@ -36,3 +36,8 @@ Do not put account names, identifiers, credentials, or raw API responses in this
 - Start authorizes the connected car with the selected Blossom card.
 - Active session: stop button available and start button unavailable.
 - Son's car remains unauthorized until his own card is presented.
+
+Live result: the active session was detected and Stop did stop the Tesla. Blossom's
+state change was delayed, and an empty successful response caused a false error in
+0.3.0; the empty-body issue was fixed in 0.3.1. Version 0.4.0 adds bounded confirmation
+polling so delayed state changes are visible without repeated manual refreshes.

@@ -68,12 +68,19 @@
       "last_session_duration": {
         "name": "Duur laatste afgeronde sessie"
       },
+      "last_session_end": {"name": "Einde laatste afgeronde sessie"},
+      "last_session_type": {"name": "Type laatste afgeronde sessie"},
+      "last_session_amount": {"name": "Bedrag laatste afgeronde sessie"},
+      "last_session_reimbursement": {"name": "Laatste thuisvergoeding"},
       "selected_card": {
         "name": "Gekozen laadkaart"
       },
       "active_session": {
         "name": "Thuislaadsessie"
-      }
+      },
+      "active_session_start": {"name": "Start actieve sessie"},
+      "active_session_energy": {"name": "Energie actieve sessie"},
+      "command_status": {"name": "Laatste laadopdracht"}
     },
     "button": {
       "refresh": {

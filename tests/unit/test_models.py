@@ -2,7 +2,14 @@
 
 import pytest
 from blossom_test_client.api import ProtocolError
-from blossom_test_client.models import number, scope_choices, session_summaries, timestamp
+from blossom_test_client.models import (
+    active_session_summary,
+    number,
+    scope_choices,
+    session_amount,
+    session_summaries,
+    timestamp,
+)
 
 
 def test_session_units_sorting_and_whitelist():
@@ -13,6 +20,10 @@ def test_session_units_sorting_and_whitelist():
             "kwh": 12.5,
             "duration": 60,
             "status": "COMPLETED",
+            "type": "Home",
+            "hcpPrice": 4.25,
+            "mspPrice": 5,
+            "vat": 21,
             "user": {"email": "private"},
         },
         {"start": "2026-09-21T13:00:00+02:00", "end": None, "kwh": 0, "status": "IN_PROGRESS"},
@@ -21,6 +32,7 @@ def test_session_units_sorting_and_whitelist():
     assert result[0]["energy_kwh"] == 0
     assert result[1]["duration_minutes"] == 60
     assert result[1]["energy_kwh"] == 12.5
+    assert result[1]["amount_eur"] == 4.25
     assert "private" not in str(result)
     assert "2026-09-21T11:00:00+00:00" == result[0]["start"]
 
@@ -50,3 +62,20 @@ def test_explicit_scope_selection_has_all_candidates():
 def test_session_list_is_bounded():
     row = {"start": "2026-09-20T12:00:00Z"}
     assert len(session_summaries([row] * 30)) == 20
+
+
+def test_public_amount_includes_vat_like_the_blossom_web_app():
+    assert session_amount("Public", None, 10, 6) == 10.6
+    assert session_amount("Public", None, 10, None) == 12.1
+    assert session_amount("Home", 7.5, 10, 21) == 7.5
+
+
+def test_active_session_uses_active_endpoint_field_names():
+    result = active_session_summary(
+        [{"time_started_session": "2026-09-25T12:00:00Z", "kWh": 3.2, "remuneration_type": "hcp"}]
+    )
+    assert result == {
+        "start": "2026-09-25T12:00:00+00:00",
+        "energy_kwh": 3.2,
+        "remuneration_type": "hcp",
+    }

@@ -17,6 +17,8 @@ SESSIONS = [
         "kwh": 7.5,
         "duration": 60,
         "status": "COMPLETED",
+        "type": "Home",
+        "hcpPrice": 2.75,
     }
 ]
 

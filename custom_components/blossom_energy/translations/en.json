@@ -68,12 +68,19 @@
       "last_session_duration": {
         "name": "Last completed session duration"
       },
+      "last_session_end": {"name": "Last completed session end"},
+      "last_session_type": {"name": "Last completed session type"},
+      "last_session_amount": {"name": "Last completed session amount"},
+      "last_session_reimbursement": {"name": "Last home reimbursement"},
       "selected_card": {
         "name": "Selected charging card"
       },
       "active_session": {
         "name": "Home charging session"
-      }
+      },
+      "active_session_start": {"name": "Active session start"},
+      "active_session_energy": {"name": "Active session energy"},
+      "command_status": {"name": "Last charging command"}
     },
     "button": {
       "refresh": {

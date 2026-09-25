@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.0
+
+- Confirm Start and Stop every 10 seconds for at most one minute without resending commands.
+- Add last-session amount, home reimbursement, end time and session type.
+- Add active-session start and energy when Blossom returns them.
+- Add privacy-safe command timing and downloadable diagnostics.
+- Refresh the selected card label from live data so old technical suffixes disappear.
+
 ## 0.3.1
 
 - Accept an empty successful response from Blossom charging commands.
