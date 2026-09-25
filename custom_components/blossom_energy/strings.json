@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Sign in to Blossom Energy",
-        "description": "Read-only development version. Sign in with your Blossom email and password. The password is used only for this login; only a refresh token is stored locally. Google/Apple login, MFA and CAPTCHA are not supported by this experimental web-login method.",
+        "description": "Sign in with your Blossom email and password. The password is used only for this login; only a refresh token is stored locally. Google/Apple login, MFA and CAPTCHA are not supported by this experimental web-login method.",
         "data": {
           "email": "Email",
           "password": "Password"
@@ -18,16 +18,16 @@
         }
       },
       "scope": {
-        "title": "Choose your account membership and home installation",
-        "description": "Select the member/company relationship and the installation that belong together. IDs are shown to distinguish similar names. No charging settings will be changed.",
+        "title": "Choose your home charging installation",
+        "description": "Choose the Blossom account and home installation you want to use.",
         "data": {
-          "member_id": "Membership",
-          "installation_id": "Home installation"
+          "member_id": "Blossom account",
+          "installation_id": "Home charging installation"
         }
       },
       "card": {
         "title": "Choose your Blossom card",
-        "description": "This selection is saved for future authorization features. This version only reads data and sends no charging commands. Recent sessions can include home and public sessions and are not filtered to this card.",
+        "description": "Choose the card that Home Assistant will use to start a home charging session. Recent-session history can also contain sessions from other cards.",
         "data": {
           "card_id": "Charging card"
         }
@@ -70,11 +70,20 @@
       },
       "selected_card": {
         "name": "Selected charging card"
+      },
+      "active_session": {
+        "name": "Home charging session"
       }
     },
     "button": {
       "refresh": {
         "name": "Refresh Blossom data"
+      },
+      "start_charging": {
+        "name": "Start home charging"
+      },
+      "stop_charging": {
+        "name": "Stop home charging"
       }
     }
   }

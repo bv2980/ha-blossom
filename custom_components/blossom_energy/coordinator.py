@@ -39,6 +39,7 @@ class BlossomCoordinator(DataUpdateCoordinator):
                 raise PermissionError("scope_changed")
             cards = await self.client.cards(self.scope)
             sessions = session_summaries(await self.client.recent_sessions(self.scope))
+            active_sessions = await self.client.active_sessions(self.scope)
             completed = [s for s in sessions if s["end"] and s["status"] != "IN_PROGRESS"]
             return {
                 "cards": [
@@ -55,6 +56,7 @@ class BlossomCoordinator(DataUpdateCoordinator):
                 "selected_card_available": any(
                     c["id"] == self.entry.data["card_id"] for c in cards
                 ),
+                "active_session": "active" if active_sessions else "inactive",
             }
         except AuthError as err:
             raise ConfigEntryAuthFailed("Blossom requires a new sign-in") from err

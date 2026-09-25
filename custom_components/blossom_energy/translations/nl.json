@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Aanmelden bij Blossom Energy",
-        "description": "Alleen-lezen testversie. Meld aan met je Blossom-e-mailadres en wachtwoord. Het wachtwoord wordt alleen voor deze aanmelding gebruikt; alleen een refresh-token wordt lokaal opgeslagen. Google/Apple, MFA en CAPTCHA worden niet ondersteund door deze experimentele webaanmelding.",
+        "description": "Meld aan met je Blossom-e-mailadres en wachtwoord. Het wachtwoord wordt alleen voor deze aanmelding gebruikt; alleen een refresh-token wordt lokaal opgeslagen. Google/Apple, MFA en CAPTCHA worden niet ondersteund door deze experimentele webaanmelding.",
         "data": {
           "email": "E-mailadres",
           "password": "Wachtwoord"
@@ -18,16 +18,16 @@
         }
       },
       "scope": {
-        "title": "Kies je accountlidmaatschap en thuisinstallatie",
-        "description": "Kies het lidmaatschap/bedrijf en de installatie die bij elkaar horen. De IDs helpen gelijknamige keuzes onderscheiden. Er worden geen laadinstellingen gewijzigd.",
+        "title": "Kies je thuislaadinstallatie",
+        "description": "Kies het Blossom-account en de thuisinstallatie die je wilt gebruiken.",
         "data": {
-          "member_id": "Lidmaatschap",
-          "installation_id": "Thuisinstallatie"
+          "member_id": "Blossom-account",
+          "installation_id": "Thuislaadinstallatie"
         }
       },
       "card": {
         "title": "Kies je Blossom-laadkaart",
-        "description": "Deze keuze wordt bewaard voor toekomstige autorisatie. Deze versie leest alleen gegevens en verstuurt geen laadcommando’s. Recente sessies kunnen thuis- en publieke sessies bevatten en worden niet op deze kaart gefilterd.",
+        "description": "Kies de kaart waarmee Home Assistant een thuislaadsessie zal starten. De geschiedenis kan ook sessies van andere kaarten bevatten.",
         "data": {
           "card_id": "Laadkaart"
         }
@@ -70,11 +70,20 @@
       },
       "selected_card": {
         "name": "Gekozen laadkaart"
+      },
+      "active_session": {
+        "name": "Thuislaadsessie"
       }
     },
     "button": {
       "refresh": {
         "name": "Blossom-gegevens vernieuwen"
+      },
+      "start_charging": {
+        "name": "Thuisladen starten"
+      },
+      "stop_charging": {
+        "name": "Thuisladen stoppen"
       }
     }
   }

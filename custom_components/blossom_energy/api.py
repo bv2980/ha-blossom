@@ -1,4 +1,4 @@
-"""Asynchronous, read-only Blossom client; no Home Assistant dependencies.
+"""Asynchronous Blossom client with an explicit endpoint allowlist.
 
 Personal login follows the first-party web application's Auth0 PKCE flow.
 This is not a documented third-party authentication contract. Only the Auth0
@@ -307,6 +307,43 @@ class BlossomClient:
                 raise ConnectionError("api_connection_failed") from None
         raise AuthError("authentication_failed")
 
+    async def post(self, path, scope, data=None):
+        """Send one explicitly allowlisted home-charging command."""
+        if path not in {"/optimile/home-session/start", "/optimile/home-session/stop"}:
+            raise ValueError("Only explicitly allowed command endpoints are supported")
+        await self.ensure_token()
+        for attempt in range(2):
+            access = self.tokens.access_token
+            headers = {
+                "Authorization": f"Bearer {access}",
+                "x-selected-company": scope["company_id"],
+                "x-hrzn-skip-warning": "Robbe is cool",
+            }
+            params = {
+                "memberId": scope["member_id"],
+                "installationId": scope["installation_id"],
+            }
+            request_data = {"json": data} if data is not None else {}
+            try:
+                async with self.session.post(
+                    API_ORIGIN + path,
+                    params=params,
+                    headers=headers,
+                    timeout=TIMEOUT,
+                    allow_redirects=False,
+                    **request_data,
+                ) as response:
+                    if response.status == 401 and attempt == 0:
+                        await self.ensure_token(rejected_token=access)
+                        continue
+                    return await json_response(response)
+            except RateLimitError as err:
+                self._retry_at = time.monotonic() + err.seconds
+                raise
+            except (aiohttp.ClientError, TimeoutError):
+                raise ConnectionError("api_connection_failed") from None
+        raise AuthError("authentication_failed")
+
     async def current_user(self):
         data = await self.get("/users/current")
         if not isinstance(data, dict) or not isinstance(data.get("id"), str):
@@ -327,3 +364,12 @@ class BlossomClient:
                 {"page": 1, "take": 20, "order": "desc", "orderByKey": "start"},
             )
         )[:20]
+
+    async def active_sessions(self, scope):
+        return records(await self.get("/charging-session/employee/active", scope))
+
+    async def start_home_session(self, scope, card_id):
+        return await self.post("/optimile/home-session/start", scope, {"cardId": card_id})
+
+    async def stop_home_session(self, scope):
+        return await self.post("/optimile/home-session/stop", scope)

@@ -4,6 +4,7 @@ from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
 from homeassistant.const import EntityCategory, UnitOfEnergy, UnitOfTime
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
+from .entity import device_info
 from .models import timestamp
 
 PARALLEL_UPDATES = 0
@@ -20,6 +21,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
             "last_session_energy",
             "last_session_duration",
             "selected_card",
+            "active_session",
         )
     )
 
@@ -32,6 +34,7 @@ class BlossomSensor(CoordinatorEntity, SensorEntity):
         self.key = key
         self._attr_unique_id = f"{coordinator.entry.unique_id}_{key}"
         self._attr_translation_key = key
+        self._attr_device_info = device_info(coordinator.entry)
         if key in ("last_update", "last_session_start"):
             self._attr_device_class = SensorDeviceClass.TIMESTAMP
         if key == "last_session_energy":
@@ -56,6 +59,7 @@ class BlossomSensor(CoordinatorEntity, SensorEntity):
             "last_session_energy": last.get("energy_kwh"),
             "last_session_duration": last.get("duration_minutes"),
             "selected_card": self.coordinator.entry.data["card_label"],
+            "active_session": data["active_session"],
         }[self.key]
 
     @property

@@ -51,5 +51,28 @@ def mock_api():
             new_callable=AsyncMock,
             return_value=SESSIONS,
         ) as sessions,
+        patch(
+            "custom_components.blossom_energy.api.BlossomClient.active_sessions",
+            new_callable=AsyncMock,
+            return_value=[],
+        ) as active,
+        patch(
+            "custom_components.blossom_energy.api.BlossomClient.start_home_session",
+            new_callable=AsyncMock,
+            return_value={},
+        ) as start,
+        patch(
+            "custom_components.blossom_energy.api.BlossomClient.stop_home_session",
+            new_callable=AsyncMock,
+            return_value={},
+        ) as stop,
     ):
-        yield {"login": login, "current": current, "cards": cards, "sessions": sessions}
+        yield {
+            "login": login,
+            "current": current,
+            "cards": cards,
+            "sessions": sessions,
+            "active": active,
+            "start": start,
+            "stop": stop,
+        }

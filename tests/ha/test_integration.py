@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from homeassistant.config_entries import SOURCE_USER, ConfigEntryState
 from homeassistant.data_entry_flow import FlowResultType
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.storage import Store
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
@@ -38,20 +39,42 @@ async def test_full_setup_entities_reload_and_delete(hass, mock_api):
     saved = await Store(hass, 1, entry.data["token_store"]).async_load()
     assert saved == {"refresh_token": "synthetic-refresh"}
     states = hass.states.async_all("sensor")
-    assert len(states) == 7
+    assert len(states) == 8
     assert any(s.state == "7.5" for s in states)
     assert "synthetic-refresh" not in str(states)
     assert "synthetic-password" not in str(states)
-    assert len(hass.states.async_all("button")) == 1
+    assert len(hass.states.async_all("button")) == 3
     assert not hass.services.has_service(DOMAIN, "start_charging")
     assert await hass.config_entries.async_reload(entry.entry_id)
     await hass.async_block_till_done()
     assert entry.state == ConfigEntryState.LOADED
-    assert len(hass.states.async_all("sensor")) == 7
+    assert len(hass.states.async_all("sensor")) == 8
     key = entry.data["token_store"]
     await hass.config_entries.async_remove(entry.entry_id)
     await hass.async_block_till_done()
     assert await Store(hass, 1, key).async_load() is None
+
+
+async def test_start_and_stop_home_charging_buttons(hass, mock_api):
+    entry = await configure(hass)
+    registry = er.async_get(hass)
+    start_id = registry.async_get_entity_id("button", DOMAIN, f"{entry.unique_id}_start_charging")
+    stop_id = registry.async_get_entity_id("button", DOMAIN, f"{entry.unique_id}_stop_charging")
+    assert start_id and stop_id
+    assert hass.states[start_id].state != "unavailable"
+    assert hass.states[stop_id].state == "unavailable"
+
+    await hass.services.async_call("button", "press", {"entity_id": start_id}, blocking=True)
+    mock_api["start"].assert_awaited_once_with(entry.runtime_data.scope, "card")
+
+    mock_api["active"].return_value = [{"id": "active-session"}]
+    await entry.runtime_data.async_refresh()
+    await hass.async_block_till_done()
+    assert hass.states[start_id].state == "unavailable"
+    assert hass.states[stop_id].state != "unavailable"
+
+    await hass.services.async_call("button", "press", {"entity_id": stop_id}, blocking=True)
+    mock_api["stop"].assert_awaited_once_with(entry.runtime_data.scope)
 
 
 async def test_login_failure_and_retry(hass, mock_api):

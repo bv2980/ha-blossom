@@ -2,11 +2,12 @@
 
 Unofficial custom integration maintained by **bv2980**. Not affiliated with Blossom.
 
-## Version 0.2.0: read-only development milestone
+## Version 0.3.0: home-charging control milestone
 
-Sign in with email/password, explicitly select membership, installation and card,
-and retrieve up to 20 recent sessions. No charging, card-management or energy-management
-commands are implemented. Compatibility target: Home Assistant Core **2026.9.3** or newer.
+Sign in with email/password, explicitly select your Blossom account, home installation and
+card, retrieve up to 20 recent sessions, and start or stop a home-charging session. The
+integration does not change card or energy-management settings. Compatibility target:
+Home Assistant Core **2026.9.3** or newer.
 
 This is experimental. Automated tests use synthetic data. Successful authentication
 and the returned data must still be checked against your own account in HA.
@@ -15,7 +16,7 @@ and the returned data must still be checked against your own account in HA.
 
 1. In HACS > three-dot menu > Custom repositories, add
    `https://github.com/bv2980/ha-blossom` with type **Integration**.
-2. Download version **0.2.0**, then restart Home Assistant Core.
+2. Download the latest release, then restart Home Assistant Core.
 3. If upgrading from 0.1.0, delete only the **Blossom Energy — installation test**
    entry under Settings > Devices & services. Keep the integration installed in HACS.
    The old test entry contains no credentials or entities; it has no account to migrate.
@@ -35,12 +36,14 @@ milestone, remove the entry and configure it again.
 - Recent-session count, with a maximum of 20 summaries in the `sessions` attribute.
 - Last **completed** session start, energy (kWh) and duration (minutes), when returned.
 - Last successful update and a manual refresh button.
+- Active home-session status and explicit start/stop buttons on one HA device page.
 
 Updates are coordinated every 15 minutes. All sensors share the same data fetch.
 Session history comes from the employee `recent` endpoint using the selected membership
 and installation parameters. It can include home and public charging; it is **not filtered
 to the selected card**. The card selection does not prove vehicle identity or authorize a
-session. No complete archive or monthly total is calculated from this limited window.
+session. Starting home charging uses the card selected during setup. No complete archive
+or monthly total is calculated from this limited window.
 Empty history is valid; last-session measurements are unknown until a completed session
 with the relevant fields exists. Unavailable data is never replaced with zero.
 
@@ -83,15 +86,15 @@ HA backups, tokens or real API responses to GitHub.
 
 The generic HA warning about a custom integration is expected. Setup exceptions are not.
 If no cards are available or the response format changes, setup stops with an explicit
-error. Automatic charging remains outside this release.
+error. Vehicle-specific automatic charging remains outside this release.
 
 ## Architecture and tests
 
-- `api.py`: HA-independent async HTTP, PKCE login, token lifecycle and read-only endpoints.
+- `api.py`: HA-independent async HTTP, PKCE login, token lifecycle and allowlisted endpoints.
 - `models.py`: explicit data validation and privacy-conscious session summaries.
 - `config_flow.py`: login, explicit scope/card selection and same-account reauthentication.
 - `coordinator.py`: one shared 15-minute update with standard HA availability/errors.
-- `sensor.py`, `button.py`: read-only UI entities and manual refresh.
+- `sensor.py`, `button.py`: status entities, manual refresh and explicit charging controls.
 - `__init__.py`: setup, unloading and token cleanup on removal.
 
 Unit tests cover callback validation, credential destinations, token reuse/rotation,

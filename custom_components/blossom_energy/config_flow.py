@@ -135,14 +135,10 @@ class BlossomEnergyConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         return await self.async_step_card()
                 except API_ERRORS as err:
                     errors["base"] = error_key(err)
-        members = {
-            key: f"{value.get('name') or value.get('email') or 'Member'} ({key})"
-            for key, value in self.members.items()
-        }
-        installations = {
-            key: f"{value.get('name') or value.get('label') or 'Installation'} ({key})"
-            for key, value in self.installations.items()
-        }
+        members = _friendly_choices(self.members, "Blossom account", _member_name)
+        installations = _friendly_choices(
+            self.installations, "Home charging installation", _installation_name
+        )
         return self.async_show_form(
             step_id="scope",
             data_schema=vol.Schema(
@@ -156,10 +152,7 @@ class BlossomEnergyConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_card(self, user_input=None):
         errors = {}
-        choices = {
-            card["id"]: f"{card.get('label') or 'Card'} ({card.get('type', 'unknown')})"
-            for card in self.cards
-        }
+        choices = {card["id"]: str(card.get("label") or "Charging card") for card in self.cards}
         if user_input is not None:
             card_id = user_input["card_id"]
             if card_id not in choices:
@@ -192,3 +185,31 @@ class BlossomEnergyConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             ),
             errors=errors,
         )
+
+
+def _member_name(value):
+    company = value.get("company") if isinstance(value.get("company"), dict) else {}
+    return (
+        company.get("name")
+        or value.get("companyName")
+        or value.get("employerName")
+        or value.get("name")
+        or value.get("email")
+    )
+
+
+def _installation_name(value):
+    address = value.get("address") if isinstance(value.get("address"), dict) else {}
+    address_name = " ".join(
+        str(part) for part in (address.get("street"), address.get("city")) if part
+    )
+    return value.get("name") or value.get("label") or address_name or None
+
+
+def _friendly_choices(values, fallback, name_getter):
+    """Use readable names and expose only a short ID when disambiguation is needed."""
+    names = {key: str(name_getter(value) or fallback) for key, value in values.items()}
+    counts = {name: list(names.values()).count(name) for name in set(names.values())}
+    return {
+        key: f"{name} ({key[-6:]})" if counts[name] > 1 else name for key, name in names.items()
+    }

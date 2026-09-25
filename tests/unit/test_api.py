@@ -198,6 +198,34 @@ async def test_api_scope_readonly_and_pagination():
     assert len(session.calls) == 1
 
 
+async def test_home_charging_commands_are_scoped_and_card_is_explicit():
+    session = Session([Response(201, {}), Response(201, {})])
+    client = api.BlossomClient(session, api.Tokens("refresh", "access", time.monotonic() + 300))
+    scope = {"member_id": "member", "installation_id": "installation", "company_id": "company"}
+
+    await client.start_home_session(scope, "selected-card")
+    await client.stop_home_session(scope)
+
+    start, stop = session.calls
+    assert start[0] == stop[0] == "POST"
+    assert start[1].endswith("/optimile/home-session/start")
+    assert start[2]["json"] == {"cardId": "selected-card"}
+    assert stop[1].endswith("/optimile/home-session/stop")
+    assert "json" not in stop[2]
+    assert (
+        start[2]["params"]
+        == stop[2]["params"]
+        == {
+            "memberId": "member",
+            "installationId": "installation",
+        }
+    )
+    assert start[2]["headers"]["x-selected-company"] == "company"
+
+    with pytest.raises(ValueError):
+        await client.post("/device/dangerous-command", scope)
+
+
 @pytest.mark.parametrize(
     "status,exception",
     [

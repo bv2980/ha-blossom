@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.0
+
+- Group all Blossom entities under one Home Assistant service device.
+- Add active home-session status and explicit start/stop buttons.
+- Start uses the selected card and selected account/installation context.
+- Replace technical setup labels and full UUIDs with readable choices.
+- Keep internal IDs visible only when two choices have the same label.
+
 ## 0.2.1
 
 - New original blossom-and-lightning icon, with standard and high-resolution assets.
