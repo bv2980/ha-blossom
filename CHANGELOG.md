@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.1
+
+- New original blossom-and-lightning icon, with standard and high-resolution assets.
+
 ## 0.2.0
 
 - Experimental email/password login with PKCE, isolated login cookies and callback checks.
