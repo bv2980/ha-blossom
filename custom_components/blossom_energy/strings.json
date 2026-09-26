@@ -57,7 +57,7 @@
         "name": "Available charging cards"
       },
       "recent_sessions": {
-        "name": "Recent sessions (maximum 20)"
+        "name": "Loaded recent sessions (maximum 20)"
       },
       "last_session_start": {
         "name": "Last completed session start"

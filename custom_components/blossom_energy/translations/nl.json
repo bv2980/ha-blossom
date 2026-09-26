@@ -57,7 +57,7 @@
         "name": "Beschikbare laadkaarten"
       },
       "recent_sessions": {
-        "name": "Recente sessies (maximaal 20)"
+        "name": "Geladen recente sessies (maximaal 20)"
       },
       "last_session_start": {
         "name": "Laatste afgeronde sessie gestart"

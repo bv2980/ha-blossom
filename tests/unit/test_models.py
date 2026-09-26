@@ -1,5 +1,8 @@
 """Guard units, missing data and private-field exclusion."""
 
+import json
+from pathlib import Path
+
 import pytest
 from blossom_test_client.api import ProtocolError
 from blossom_test_client.models import (
@@ -79,3 +82,12 @@ def test_active_session_uses_active_endpoint_field_names():
         "energy_kwh": 3.2,
         "remuneration_type": "hcp",
     }
+
+
+def test_manifest_and_code_versions_match():
+    from blossom_test_client.const import INTEGRATION_VERSION
+
+    manifest = json.loads(
+        (Path(__file__).parents[2] / "custom_components/blossom_energy/manifest.json").read_text()
+    )
+    assert manifest["version"] == INTEGRATION_VERSION

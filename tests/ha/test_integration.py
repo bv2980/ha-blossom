@@ -5,11 +5,13 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from homeassistant.config_entries import SOURCE_USER, ConfigEntryState
 from homeassistant.data_entry_flow import FlowResultType
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.storage import Store
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.blossom_energy.api import AuthError, ConnectionError
+from custom_components.blossom_energy.diagnostics import async_get_config_entry_diagnostics
 
 DOMAIN = "blossom_energy"
 
@@ -44,6 +46,14 @@ async def test_full_setup_entities_reload_and_delete(hass, mock_api):
     assert "synthetic-refresh" not in str(states)
     assert "synthetic-password" not in str(states)
     assert len(hass.states.async_all("button")) == 3
+    device = dr.async_get(hass).async_get_device_by_identifier(
+        (DOMAIN, "installation"), entry.entry_id
+    )
+    assert device is not None
+    assert device.sw_version == "0.4.1"
+    diagnostics = await async_get_config_entry_diagnostics(hass, entry)
+    assert diagnostics["config_entry"]["card_label"] == "**REDACTED**"
+    assert diagnostics["active_session_schema"] == {"field_count": 0, "field_names": []}
     assert not hass.services.has_service(DOMAIN, "start_charging")
     assert await hass.config_entries.async_reload(entry.entry_id)
     await hass.async_block_till_done()
@@ -53,6 +63,29 @@ async def test_full_setup_entities_reload_and_delete(hass, mock_api):
     await hass.config_entries.async_remove(entry.entry_id)
     await hass.async_block_till_done()
     assert await Store(hass, 1, key).async_load() is None
+
+
+async def test_refreshes_legacy_card_label_and_reports_only_active_field_names(hass, mock_api):
+    entry = await configure(hass)
+    hass.config_entries.async_update_entry(
+        entry, data={**entry.data, "card_label": "Test card (msp)"}
+    )
+    mock_api["active"].return_value = [
+        {
+            "time_started_session": "2026-09-26T10:00:00Z",
+            "kWh": 1.5,
+            "privateValue": "must-not-appear",
+        }
+    ]
+    assert await hass.config_entries.async_reload(entry.entry_id)
+    await hass.async_block_till_done()
+    assert entry.data["card_label"] == "Test card"
+    diagnostics = await async_get_config_entry_diagnostics(hass, entry)
+    assert diagnostics["active_session_schema"] == {
+        "field_count": 3,
+        "field_names": ["kWh", "privateValue", "time_started_session"],
+    }
+    assert "must-not-appear" not in str(diagnostics)
 
 
 async def test_start_and_stop_home_charging_buttons(hass, mock_api):

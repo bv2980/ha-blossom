@@ -1,4 +1,4 @@
-"""Blossom Energy read-only integration."""
+"""Blossom Energy integration setup."""
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
@@ -28,6 +28,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     client = BlossomClient(async_get_clientsession(hass), Tokens(saved["refresh_token"]), persist)
     coordinator = BlossomCoordinator(hass, entry, client)
     await coordinator.async_config_entry_first_refresh()
+    live_card_label = coordinator.data.get("selected_card_label")
+    if live_card_label and live_card_label != entry.data.get("card_label"):
+        hass.config_entries.async_update_entry(
+            entry, data={**entry.data, "card_label": live_card_label}
+        )
     entry.runtime_data = coordinator
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True

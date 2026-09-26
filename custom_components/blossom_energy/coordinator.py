@@ -47,9 +47,12 @@ class BlossomCoordinator(DataUpdateCoordinator):
                 or self.scope["installation_id"] not in installations
             ):
                 raise PermissionError("scope_changed")
-            cards = await self.client.cards(self.scope)
-            sessions = session_summaries(await self.client.recent_sessions(self.scope))
-            active_rows = await self.client.active_sessions(self.scope)
+            cards, session_rows, active_rows = await asyncio.gather(
+                self.client.cards(self.scope),
+                self.client.recent_sessions(self.scope),
+                self.client.active_sessions(self.scope),
+            )
+            sessions = session_summaries(session_rows)
             active = active_session_summary(active_rows)
             completed = [s for s in sessions if s["end"] and s["status"] != "IN_PROGRESS"]
             selected = next((c for c in cards if c["id"] == self.entry.data["card_id"]), None)
@@ -71,6 +74,7 @@ class BlossomCoordinator(DataUpdateCoordinator):
                 "selected_card_label": str((selected or {}).get("label", ""))[:100],
                 "active_session": "active" if active_rows else "inactive",
                 "active_session_details": active,
+                "active_session_schema": _safe_schema(active_rows),
                 "command": dict(self.command),
             }
         except AuthError as err:
@@ -139,3 +143,13 @@ class BlossomCoordinator(DataUpdateCoordinator):
         if self._command_task and not self._command_task.done():
             self._command_task.cancel()
         await super().async_shutdown()
+
+
+def _safe_schema(rows):
+    """Expose field names, never values, to diagnose upstream schema changes."""
+    if not rows:
+        return {"field_count": 0, "field_names": []}
+    names = sorted(
+        key[:80] for key in rows[0] if isinstance(key, str) and key.replace("_", "").isalnum()
+    )[:50]
+    return {"field_count": len(rows[0]), "field_names": names}

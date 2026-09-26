@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.1
+
+- Show the integration software version in the Home Assistant device information.
+- Redact the stored card label from downloadable diagnostics.
+- Report active-session field names without their values for safe API diagnosis.
+- Fetch cards, recent sessions and active-session state concurrently after scope validation.
+- Refresh legacy card labels from live Blossom data during setup.
+- Clarify that the recent-session count is the number of loaded records, capped at 20.
+
 ## 0.4.0
 
 - Confirm Start and Stop every 10 seconds for at most one minute without resending commands.
