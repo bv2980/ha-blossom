@@ -8,7 +8,7 @@
 - Add an automation-friendly binary active-session sensor.
 - Add active-session status, vehicle current and vehicle phase sensors.
 - Translate charging-command states and retain privacy-safe confirmation timing attributes.
-- Report a Home Assistant repair warning when the selected card is no longer available.
+- Report repair warnings for a missing selected card or a stale active-session update.
 
 ## 0.4.3
 

@@ -68,7 +68,8 @@ default from both the calendar and recent-session attributes. The calendar reuse
 maximum of 20 loaded sessions and makes no additional API requests. Add its entity to a
 Home Assistant calendar card to browse those sessions; it is not a complete archive.
 
-Home Assistant creates a repair warning if the selected card disappears from Blossom.
+Home Assistant creates a repair warning if the selected card disappears from Blossom or
+if Blossom's own update time for an active session becomes more than ten minutes old.
 Authentication failures use Home Assistant's normal reauthentication flow. The integration
 keeps the existing text session sensor for compatibility and also exposes a binary active
 session sensor for simpler automations.

@@ -65,6 +65,10 @@
     "selected_card_missing": {
       "title": "Geselecteerde Blossom-laadpas is niet beschikbaar",
       "description": "Blossom geeft de laadpas voor het starten van thuisladen niet meer terug. Open de integratieopties en selecteer een beschikbare laadpas."
+    },
+    "active_session_stale": {
+      "title": "Actieve Blossom-sessie wordt niet meer bijgewerkt",
+      "description": "Blossom meldt een actieve sessie, maar het eigen tijdstip van de laatste update is meer dan tien minuten oud. Controleer de Blossom-app en het laadpunt voordat je een nieuwe sessie start."
     }
   },
   "entity": {

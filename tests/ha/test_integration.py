@@ -8,6 +8,7 @@ from homeassistant.config_entries import SOURCE_USER, ConfigEntryState
 from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.storage import Store
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
@@ -193,6 +194,22 @@ async def test_recent_sessions_are_exposed_as_privacy_safe_calendar_events(hass,
     assert events[0].summary == "Home · 7.50 kWh"
     assert "Amount: €2.75" in events[0].description
     assert events[0].location is None
+
+
+async def test_stale_active_session_creates_and_clears_repair_issue(hass, mock_api):
+    entry = await configure(hass)
+    issue_id = f"active_session_stale_{entry.entry_id}"
+    mock_api["active"].return_value = [
+        {
+            "deviceStatus": "Charging",
+            "session": {"time_last_update": "2020-01-01T00:00:00Z"},
+        }
+    ]
+    await entry.runtime_data.async_refresh()
+    assert ir.async_get(hass).async_get_issue(DOMAIN, issue_id) is not None
+    mock_api["active"].return_value = []
+    await entry.runtime_data.async_refresh()
+    assert ir.async_get(hass).async_get_issue(DOMAIN, issue_id) is None
 
 
 async def test_failed_poll_marks_entities_unavailable(hass, mock_api):

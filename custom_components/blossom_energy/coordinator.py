@@ -17,7 +17,7 @@ from .const import (
     DEFAULT_REFRESH_INTERVAL,
     DOMAIN,
 )
-from .models import active_session_summary, member_name, scope_choices, session_summaries
+from .models import active_session_summary, member_name, scope_choices, session_summaries, timestamp
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -77,19 +77,7 @@ class BlossomCoordinator(DataUpdateCoordinator):
             self.update_interval = timedelta(
                 minutes=1 if active_rows else self.normal_refresh_interval
             )
-            if selected:
-                ir.async_delete_issue(
-                    self.hass, DOMAIN, f"selected_card_missing_{self.entry.entry_id}"
-                )
-            else:
-                ir.async_create_issue(
-                    self.hass,
-                    DOMAIN,
-                    f"selected_card_missing_{self.entry.entry_id}",
-                    is_fixable=False,
-                    severity=ir.IssueSeverity.WARNING,
-                    translation_key="selected_card_missing",
-                )
+            self._update_issues(selected, active)
             return {
                 "cards": [
                     {
@@ -155,6 +143,37 @@ class BlossomCoordinator(DataUpdateCoordinator):
         data = dict(self.data)
         data["command"] = dict(self.command)
         self.async_set_updated_data(data)
+
+    def _update_issues(self, selected, active):
+        card_issue = f"selected_card_missing_{self.entry.entry_id}"
+        if selected:
+            ir.async_delete_issue(self.hass, DOMAIN, card_issue)
+        else:
+            ir.async_create_issue(
+                self.hass,
+                DOMAIN,
+                card_issue,
+                is_fixable=False,
+                severity=ir.IssueSeverity.WARNING,
+                translation_key="selected_card_missing",
+            )
+
+        stale_issue = f"active_session_stale_{self.entry.entry_id}"
+        last_update = timestamp(active.get("last_update"))
+        is_stale = last_update is not None and dt_util.utcnow() - last_update > timedelta(
+            minutes=10
+        )
+        if is_stale:
+            ir.async_create_issue(
+                self.hass,
+                DOMAIN,
+                stale_issue,
+                is_fixable=False,
+                severity=ir.IssueSeverity.WARNING,
+                translation_key="active_session_stale",
+            )
+        else:
+            ir.async_delete_issue(self.hass, DOMAIN, stale_issue)
 
     async def _async_confirm_command(self, action, requested):
         expected_active = action == "start"

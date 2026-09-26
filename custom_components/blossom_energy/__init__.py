@@ -54,5 +54,6 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
     ir.async_delete_issue(hass, DOMAIN, f"selected_card_missing_{entry.entry_id}")
+    ir.async_delete_issue(hass, DOMAIN, f"active_session_stale_{entry.entry_id}")
     if key := entry.data.get("token_store"):
         await token_store(hass, key).async_remove()

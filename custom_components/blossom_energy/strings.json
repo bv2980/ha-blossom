@@ -65,6 +65,10 @@
     "selected_card_missing": {
       "title": "Selected Blossom card is unavailable",
       "description": "The card selected for starting home charging is no longer returned by Blossom. Open the integration options and select an available card."
+    },
+    "active_session_stale": {
+      "title": "Active Blossom session is no longer updating",
+      "description": "Blossom reports an active session, but its own last-update time is more than ten minutes old. Check the Blossom app and charging point before starting another session."
     }
   },
   "entity": {
