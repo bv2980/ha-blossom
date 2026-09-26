@@ -1,7 +1,13 @@
 """Read-only account-scoped sensors, with bounded session summaries."""
 
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
-from homeassistant.const import CURRENCY_EURO, EntityCategory, UnitOfEnergy, UnitOfTime
+from homeassistant.const import (
+    CURRENCY_EURO,
+    EntityCategory,
+    UnitOfElectricCurrent,
+    UnitOfEnergy,
+    UnitOfTime,
+)
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .entity import device_info
@@ -34,6 +40,7 @@ CHARGER_STATE_MAP = {
     "faulted": "faulted",
     "inactive": "inactive",
 }
+COMMAND_STATES = ("idle", "pending", "confirmed", "not_confirmed", "poll_failed", "rejected")
 
 
 async def async_setup_entry(hass, entry, async_add_entities):
@@ -55,6 +62,9 @@ async def async_setup_entry(hass, entry, async_add_entities):
             "active_session_start",
             "active_session_energy",
             "active_session_last_update",
+            "active_session_status",
+            "vehicle_current",
+            "vehicle_phases",
             "charger_status",
             "account",
             "command_status",
@@ -88,6 +98,12 @@ class BlossomSensor(CoordinatorEntity, SensorEntity):
         if key == "charger_status":
             self._attr_device_class = SensorDeviceClass.ENUM
             self._attr_options = list(CHARGER_STATES)
+        if key == "command_status":
+            self._attr_device_class = SensorDeviceClass.ENUM
+            self._attr_options = list(COMMAND_STATES)
+        if key == "vehicle_current":
+            self._attr_device_class = SensorDeviceClass.CURRENT
+            self._attr_native_unit_of_measurement = UnitOfElectricCurrent.AMPERE
         if key == "last_session_duration":
             self._attr_device_class = SensorDeviceClass.DURATION
             self._attr_native_unit_of_measurement = UnitOfTime.MINUTES
@@ -116,6 +132,9 @@ class BlossomSensor(CoordinatorEntity, SensorEntity):
             "active_session_start": timestamp(active.get("start")),
             "active_session_energy": active.get("energy_kwh"),
             "active_session_last_update": timestamp(active.get("last_update")),
+            "active_session_status": active.get("session_status"),
+            "vehicle_current": active.get("vehicle_current"),
+            "vehicle_phases": active.get("vehicle_phases"),
             "charger_status": CHARGER_STATE_MAP.get(str(data["charger_status"]).lower(), "unknown"),
             "account": data["account_label"],
             "command_status": data["command"]["state"],
@@ -124,8 +143,14 @@ class BlossomSensor(CoordinatorEntity, SensorEntity):
     @property
     def extra_state_attributes(self):
         if self.key == "recent_sessions":
+            sessions = self.coordinator.data["sessions"]
+            if not self.coordinator.show_session_locations:
+                sessions = [
+                    {key: value for key, value in session.items() if key != "location_name"}
+                    for session in sessions
+                ]
             return {
-                "sessions": self.coordinator.data["sessions"],
+                "sessions": sessions,
                 "scope": "selected_member_and_installation_not_card_filtered",
                 "limit": 20,
             }

@@ -59,6 +59,10 @@ def session_summaries(rows):
                 "home_reimbursement_eur": hcp_price,
                 "public_price_ex_vat_eur": msp_price,
                 "vat_percentage": vat,
+                "location_name": _bounded_text(row.get("location_name") or row.get("locationName")),
+                "service_provider_name": _bounded_text(
+                    row.get("service_provider_name") or row.get("serviceProviderName")
+                ),
             }
         )
     return sorted(result, key=lambda row: row["start"], reverse=True)

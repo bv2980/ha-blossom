@@ -5,11 +5,18 @@ import logging
 from datetime import timedelta
 
 from homeassistant.exceptions import ConfigEntryAuthFailed
+from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
 
 from .api import AuthError, BlossomError, PermissionError, RateLimitError
-from .const import DOMAIN
+from .const import (
+    CONF_CARD_ID,
+    CONF_REFRESH_INTERVAL,
+    CONF_SHOW_SESSION_LOCATIONS,
+    DEFAULT_REFRESH_INTERVAL,
+    DOMAIN,
+)
 from .models import active_session_summary, member_name, scope_choices, session_summaries
 
 _LOGGER = logging.getLogger(__name__)
@@ -17,15 +24,14 @@ _LOGGER = logging.getLogger(__name__)
 
 class BlossomCoordinator(DataUpdateCoordinator):
     def __init__(self, hass, entry, client):
-        super().__init__(
-            hass, _LOGGER, name=DOMAIN, config_entry=entry, update_interval=timedelta(minutes=15)
-        )
+        super().__init__(hass, _LOGGER, name=DOMAIN, config_entry=entry)
         self.client = client
         self.entry = entry
         self.scope = {
             key: entry.data[key] for key in ("member_id", "company_id", "installation_id")
         }
         self._command_task = None
+        self.update_interval = timedelta(minutes=self.normal_refresh_interval)
         self.command = {
             "action": None,
             "state": "idle",
@@ -34,6 +40,18 @@ class BlossomCoordinator(DataUpdateCoordinator):
             "confirmation_seconds": None,
             "poll_count": 0,
         }
+
+    @property
+    def card_id(self):
+        return self.entry.options.get(CONF_CARD_ID, self.entry.data[CONF_CARD_ID])
+
+    @property
+    def normal_refresh_interval(self):
+        return self.entry.options.get(CONF_REFRESH_INTERVAL, DEFAULT_REFRESH_INTERVAL)
+
+    @property
+    def show_session_locations(self):
+        return self.entry.options.get(CONF_SHOW_SESSION_LOCATIONS, False)
 
     async def _async_update_data(self):
         try:
@@ -55,7 +73,23 @@ class BlossomCoordinator(DataUpdateCoordinator):
             sessions = session_summaries(session_rows)
             active = active_session_summary(active_rows)
             completed = [s for s in sessions if s["end"] and s["status"] != "IN_PROGRESS"]
-            selected = next((c for c in cards if c["id"] == self.entry.data["card_id"]), None)
+            selected = next((c for c in cards if c["id"] == self.card_id), None)
+            self.update_interval = timedelta(
+                minutes=1 if active_rows else self.normal_refresh_interval
+            )
+            if selected:
+                ir.async_delete_issue(
+                    self.hass, DOMAIN, f"selected_card_missing_{self.entry.entry_id}"
+                )
+            else:
+                ir.async_create_issue(
+                    self.hass,
+                    DOMAIN,
+                    f"selected_card_missing_{self.entry.entry_id}",
+                    is_fixable=False,
+                    severity=ir.IssueSeverity.WARNING,
+                    translation_key="selected_card_missing",
+                )
             return {
                 "cards": [
                     {
@@ -68,9 +102,7 @@ class BlossomCoordinator(DataUpdateCoordinator):
                 "sessions": sessions,
                 "last_session": completed[0] if completed else {},
                 "updated_at": dt_util.utcnow(),
-                "selected_card_available": any(
-                    c["id"] == self.entry.data["card_id"] for c in cards
-                ),
+                "selected_card_available": any(c["id"] == self.card_id for c in cards),
                 "selected_card_label": str((selected or {}).get("label", ""))[:100],
                 "selected_card_type": str((selected or {}).get("type", ""))[:40],
                 "account_label": member_name(member),
@@ -109,6 +141,20 @@ class BlossomCoordinator(DataUpdateCoordinator):
             f"{DOMAIN} confirm {action}",
             eager_start=True,
         )
+
+    def async_record_command_failure(self, action):
+        """Expose a rejected command without retaining exception details."""
+        self.command = {
+            "action": action,
+            "state": "rejected",
+            "requested_at": dt_util.utcnow(),
+            "confirmed_at": None,
+            "confirmation_seconds": None,
+            "poll_count": 0,
+        }
+        data = dict(self.data)
+        data["command"] = dict(self.command)
+        self.async_set_updated_data(data)
 
     async def _async_confirm_command(self, action, requested):
         expected_active = action == "start"

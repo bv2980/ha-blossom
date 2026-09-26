@@ -48,6 +48,25 @@
       "reauth_successful": "Sign-in renewed successfully."
     }
   },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Blossom Energy options",
+        "description": "Choose the charging card used for Start, the idle refresh interval and whether session locations may be shown. Active sessions refresh every minute.",
+        "data": {
+          "card_id": "Charging card",
+          "refresh_interval": "Idle refresh interval",
+          "show_session_locations": "Show session locations"
+        }
+      }
+    }
+  },
+  "issues": {
+    "selected_card_missing": {
+      "title": "Selected Blossom card is unavailable",
+      "description": "The card selected for starting home charging is no longer returned by Blossom. Open the integration options and select an available card."
+    }
+  },
   "entity": {
     "sensor": {
       "last_update": {
@@ -81,6 +100,9 @@
       "active_session_start": {"name": "Active session start"},
       "active_session_energy": {"name": "Active session energy"},
       "active_session_last_update": {"name": "Last charging point update"},
+      "active_session_status": {"name": "Active session status"},
+      "vehicle_current": {"name": "Vehicle current"},
+      "vehicle_phases": {"name": "Vehicle phases"},
       "charger_status": {
         "name": "Charging point state",
         "state": {
@@ -98,7 +120,23 @@
         }
       },
       "account": {"name": "Blossom account"},
-      "command_status": {"name": "Last charging command"}
+      "command_status": {
+        "name": "Last charging command",
+        "state": {
+          "idle": "No command",
+          "pending": "Waiting for confirmation",
+          "confirmed": "Confirmed",
+          "not_confirmed": "Not confirmed",
+          "poll_failed": "Confirmation failed",
+          "rejected": "Rejected"
+        }
+      }
+    },
+    "binary_sensor": {
+      "active_session": {"name": "Active Blossom session"}
+    },
+    "calendar": {
+      "charging_sessions": {"name": "Charging sessions"}
     },
     "button": {
       "refresh": {

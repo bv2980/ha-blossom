@@ -48,6 +48,25 @@
       "reauth_successful": "Aanmelding succesvol vernieuwd."
     }
   },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Opties voor Blossom Energy",
+        "description": "Kies de laadpas voor Start, het verversingsinterval in rust en of sessielocaties zichtbaar mogen zijn. Actieve sessies worden iedere minuut ververst.",
+        "data": {
+          "card_id": "Laadpas",
+          "refresh_interval": "Verversingsinterval in rust",
+          "show_session_locations": "Sessielocaties tonen"
+        }
+      }
+    }
+  },
+  "issues": {
+    "selected_card_missing": {
+      "title": "Geselecteerde Blossom-laadpas is niet beschikbaar",
+      "description": "Blossom geeft de laadpas voor het starten van thuisladen niet meer terug. Open de integratieopties en selecteer een beschikbare laadpas."
+    }
+  },
   "entity": {
     "sensor": {
       "last_update": {
@@ -81,6 +100,9 @@
       "active_session_start": {"name": "Start actieve sessie"},
       "active_session_energy": {"name": "Energie actieve sessie"},
       "active_session_last_update": {"name": "Laatste update laadpunt"},
+      "active_session_status": {"name": "Status actieve sessie"},
+      "vehicle_current": {"name": "Stroom voertuig"},
+      "vehicle_phases": {"name": "Fasen voertuig"},
       "charger_status": {
         "name": "Status laadpunt",
         "state": {
@@ -98,7 +120,23 @@
         }
       },
       "account": {"name": "Blossom-account"},
-      "command_status": {"name": "Laatste laadopdracht"}
+      "command_status": {
+        "name": "Laatste laadopdracht",
+        "state": {
+          "idle": "Geen opdracht",
+          "pending": "Wacht op bevestiging",
+          "confirmed": "Bevestigd",
+          "not_confirmed": "Niet bevestigd",
+          "poll_failed": "Bevestiging mislukt",
+          "rejected": "Geweigerd"
+        }
+      }
+    },
+    "binary_sensor": {
+      "active_session": {"name": "Actieve Blossom-sessie"}
+    },
+    "calendar": {
+      "charging_sessions": {"name": "Laadsessies"}
     },
     "button": {
       "refresh": {

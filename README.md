@@ -2,7 +2,7 @@
 
 Unofficial custom integration maintained by **bv2980**. Not affiliated with Blossom.
 
-## Version 0.4.3: readable charger, account and card information
+## Version 0.5.0: session calendar, options and adaptive updates
 
 Sign in with email/password, explicitly select your Blossom account, home installation and
 card, retrieve up to 20 recent sessions, and start or stop a home-charging session. The
@@ -40,9 +40,12 @@ milestone, remove the entry and configure it again.
 - Active home-session status and explicit start/stop buttons on one HA device page.
 - Active-session start, energy and last update time.
 - A translated charging-point state, with bounded OCPP and vehicle details in attributes.
+- A binary active-session entity for automations, plus vehicle current, phases and session status.
+- A read-only calendar containing the loaded recent sessions and their bounded details.
 - Integration version in device information and privacy-safe active-response field diagnostics.
 
-Regular updates are coordinated every 15 minutes. Account scope is validated first;
+Regular updates use the configured interval (15 minutes by default). An active session updates
+every minute. Account scope is validated first;
 cards, history and active-session status are then fetched concurrently. After Start or Stop, the integration
 checks the active-session endpoint every 10 seconds for at most one minute and stops as
 soon as Blossom confirms the requested state. It never resends a charging command.
@@ -58,6 +61,17 @@ The amount follows Blossom's web app: home sessions use `hcpPrice`; other sessio
 `mspPrice` including the returned VAT percentage (21% when Blossom omits it). The source
 price and VAT are available as bounded attributes for verification.
 These session-energy sensors are not cumulative meters for the Energy dashboard.
+
+The integration options let you change the card used by Start, select a 5, 15, 30 or
+60-minute idle refresh interval and opt in to session locations. Locations are hidden by
+default from both the calendar and recent-session attributes. The calendar reuses the same
+maximum of 20 loaded sessions and makes no additional API requests. Add its entity to a
+Home Assistant calendar card to browse those sessions; it is not a complete archive.
+
+Home Assistant creates a repair warning if the selected card disappears from Blossom.
+Authentication failures use Home Assistant's normal reauthentication flow. The integration
+keeps the existing text session sensor for compatibility and also exposes a binary active
+session sensor for simpler automations.
 
 ## Authentication and storage
 
@@ -85,8 +99,8 @@ HA backups, tokens or real API responses to GitHub.
 ## Acceptance checks in HA
 
 1. Sign in and verify the membership, installation and available cards are yours.
-2. Compare recent session dates, kWh and minutes with the Blossom app. The list can include
-   public charging. View the bounded list under the recent-session sensor's attributes.
+2. Compare recent session dates, kWh and minutes with the Blossom app. The list and calendar
+   can include public charging. View the bounded list under the recent-session sensor's attributes.
 3. Press **Refresh Blossom data**; verify the last successful update changes.
 4. Reload the entry. Confirm entities recover without another password prompt.
 5. At a convenient moment, restart HA; confirm saved tokens restore the connection.
@@ -102,7 +116,8 @@ error. Vehicle-specific automatic charging remains outside this release.
 - `models.py`: explicit data validation and privacy-conscious session summaries.
 - `config_flow.py`: login, explicit scope/card selection and same-account reauthentication.
 - `coordinator.py`: shared updates and bounded command-confirmation polling.
-- `sensor.py`, `button.py`: status entities, manual refresh and explicit charging controls.
+- `sensor.py`, `binary_sensor.py`, `button.py`: status entities, refresh and charging controls.
+- `calendar.py`: read-only calendar events built from the already loaded session window.
 - `diagnostics.py`: privacy-safe Home Assistant diagnostics without identifiers or tokens.
 - `__init__.py`: setup, unloading and token cleanup on removal.
 

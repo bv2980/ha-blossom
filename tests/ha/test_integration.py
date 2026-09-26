@@ -1,5 +1,6 @@
 """Actual HA config-flow, entity, reload and removal tests with mocked cloud IO."""
 
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -11,6 +12,7 @@ from homeassistant.helpers.storage import Store
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.blossom_energy.api import AuthError, ConnectionError
+from custom_components.blossom_energy.calendar import ChargingSessionsCalendar
 from custom_components.blossom_energy.diagnostics import async_get_config_entry_diagnostics
 
 DOMAIN = "blossom_energy"
@@ -41,16 +43,18 @@ async def test_full_setup_entities_reload_and_delete(hass, mock_api):
     saved = await Store(hass, 1, entry.data["token_store"]).async_load()
     assert saved == {"refresh_token": "synthetic-refresh"}
     states = hass.states.async_all("sensor")
-    assert len(states) == 18
+    assert len(states) == 21
     assert any(s.state == "7.5" for s in states)
     assert "synthetic-refresh" not in str(states)
     assert "synthetic-password" not in str(states)
     assert len(hass.states.async_all("button")) == 3
+    assert len(hass.states.async_all("binary_sensor")) == 1
+    assert len(hass.states.async_all("calendar")) == 1
     device = dr.async_get(hass).async_get_device_by_identifier(
         (DOMAIN, "installation"), entry.entry_id
     )
     assert device is not None
-    assert device.sw_version == "0.4.3"
+    assert device.sw_version == "0.5.0"
     diagnostics = await async_get_config_entry_diagnostics(hass, entry)
     assert diagnostics["config_entry"]["card_label"] == "**REDACTED**"
     assert diagnostics["active_session_schema"] == {
@@ -63,7 +67,7 @@ async def test_full_setup_entities_reload_and_delete(hass, mock_api):
     assert await hass.config_entries.async_reload(entry.entry_id)
     await hass.async_block_till_done()
     assert entry.state == ConfigEntryState.LOADED
-    assert len(hass.states.async_all("sensor")) == 18
+    assert len(hass.states.async_all("sensor")) == 21
     key = entry.data["token_store"]
     await hass.config_entries.async_remove(entry.entry_id)
     await hass.async_block_till_done()
@@ -147,6 +151,48 @@ async def test_empty_history_is_valid(hass, mock_api):
     entry = await configure(hass)
     assert entry.runtime_data.data["sessions"] == []
     assert entry.runtime_data.data["last_session"] == {}
+
+
+async def test_options_reload_entry_and_control_refresh_and_location_privacy(hass, mock_api):
+    entry = await configure(hass)
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    assert result["step_id"] == "init"
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        {
+            "card_id": "card",
+            "refresh_interval": 30,
+            "show_session_locations": True,
+        },
+    )
+    assert result["type"] == FlowResultType.CREATE_ENTRY
+    await hass.async_block_till_done()
+    assert entry.options["card_id"] == "card"
+    assert entry.options["card_label"] == "Test card"
+    assert entry.runtime_data.normal_refresh_interval == 30
+    assert entry.runtime_data.show_session_locations is True
+
+
+async def test_active_session_uses_one_minute_refresh(hass, mock_api):
+    entry = await configure(hass)
+    assert entry.runtime_data.update_interval == timedelta(minutes=15)
+    mock_api["active"].return_value = [{"deviceStatus": "Charging", "session": {}}]
+    await entry.runtime_data.async_refresh()
+    assert entry.runtime_data.update_interval == timedelta(minutes=1)
+
+
+async def test_recent_sessions_are_exposed_as_privacy_safe_calendar_events(hass, mock_api):
+    entry = await configure(hass)
+    calendar = ChargingSessionsCalendar(entry.runtime_data)
+    events = await calendar.async_get_events(
+        hass,
+        datetime(2026, 9, 20, tzinfo=UTC),
+        datetime(2026, 9, 21, tzinfo=UTC),
+    )
+    assert len(events) == 1
+    assert events[0].summary == "Home · 7.50 kWh"
+    assert "Amount: €2.75" in events[0].description
+    assert events[0].location is None
 
 
 async def test_failed_poll_marks_entities_unavailable(hass, mock_api):

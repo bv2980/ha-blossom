@@ -5,6 +5,7 @@ import secrets
 import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.const import CONF_EMAIL, CONF_PASSWORD
+from homeassistant.core import callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.selector import TextSelector, TextSelectorConfig, TextSelectorType
 
@@ -17,7 +18,14 @@ from .api import (
     RateLimitError,
     login,
 )
-from .const import DOMAIN
+from .const import (
+    CONF_CARD_ID,
+    CONF_REFRESH_INTERVAL,
+    CONF_SHOW_SESSION_LOCATIONS,
+    DEFAULT_REFRESH_INTERVAL,
+    DOMAIN,
+    REFRESH_INTERVALS,
+)
 from .models import member_name, scope_choices, session_summaries
 from .storage import save_refresh_token
 
@@ -40,6 +48,11 @@ class BlossomEnergyConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """One explicitly selected installation per account."""
 
     VERSION = 1
+
+    @staticmethod
+    @callback
+    def async_get_options_flow(config_entry):
+        return BlossomOptionsFlow()
 
     def __init__(self):
         self.client = None
@@ -202,3 +215,53 @@ def _friendly_choices(values, fallback, name_getter):
     return {
         key: f"{name} ({key[-6:]})" if counts[name] > 1 else name for key, name in names.items()
     }
+
+
+class BlossomOptionsFlow(config_entries.OptionsFlow):
+    """Change safe runtime preferences without repeating authentication."""
+
+    async def async_step_init(self, user_input=None):
+        if user_input is not None:
+            card = next(
+                (
+                    card
+                    for card in self.config_entry.runtime_data.data.get("cards", [])
+                    if card["id"] == user_input[CONF_CARD_ID]
+                ),
+                {},
+            )
+            return self.async_create_entry(
+                title="", data={**user_input, "card_label": card.get("label", "")}
+            )
+
+        coordinator = self.config_entry.runtime_data
+        cards = {
+            card["id"]: card.get("label") or "Charging card"
+            for card in coordinator.data.get("cards", [])
+        }
+        current_card = coordinator.card_id
+        if current_card not in cards:
+            cards[current_card] = (
+                self.config_entry.options.get("card_label")
+                or self.config_entry.data.get("card_label")
+                or "Unavailable card"
+            )
+        intervals = {value: f"{value} minutes" for value in REFRESH_INTERVALS}
+        return self.async_show_form(
+            step_id="init",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_CARD_ID, default=current_card): vol.In(cards),
+                    vol.Required(
+                        CONF_REFRESH_INTERVAL,
+                        default=self.config_entry.options.get(
+                            CONF_REFRESH_INTERVAL, DEFAULT_REFRESH_INTERVAL
+                        ),
+                    ): vol.In(intervals),
+                    vol.Required(
+                        CONF_SHOW_SESSION_LOCATIONS,
+                        default=self.config_entry.options.get(CONF_SHOW_SESSION_LOCATIONS, False),
+                    ): bool,
+                }
+            ),
+        )

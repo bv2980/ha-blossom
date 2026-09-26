@@ -22,6 +22,9 @@ async def async_get_config_entry_diagnostics(hass, entry):
         "session_count": len(data.get("sessions", [])),
         "card_count": len(data.get("cards", [])),
         "active_session": data.get("active_session"),
+        "refresh_interval_minutes": coordinator.normal_refresh_interval,
+        "active_refresh": data.get("active_session") in ("active", "stopping"),
+        "session_locations_enabled": coordinator.show_session_locations,
         "active_session_schema": data.get("active_session_schema", {}),
         "command_confirmation": data.get("command", {}),
     }

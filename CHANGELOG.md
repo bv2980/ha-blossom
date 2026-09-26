@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.5.0
+
+- Add a read-only calendar for the maximum of 20 loaded recent charging sessions.
+- Add options for the charging card, idle refresh interval and location visibility.
+- Refresh active sessions every minute while retaining ten-second command confirmation.
+- Add an automation-friendly binary active-session sensor.
+- Add active-session status, vehicle current and vehicle phase sensors.
+- Translate charging-command states and retain privacy-safe confirmation timing attributes.
+- Report a Home Assistant repair warning when the selected card is no longer available.
+
 ## 0.4.3
 
 - Show the selected Blossom account and charging card in the main Sensors section.

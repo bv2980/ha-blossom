@@ -19,6 +19,8 @@ SESSIONS = [
         "status": "COMPLETED",
         "type": "Home",
         "hcpPrice": 2.75,
+        "location_name": "Synthetic home",
+        "service_provider_name": "Synthetic provider",
     }
 ]
 

@@ -66,6 +66,9 @@ class ChargingButton(CoordinatorEntity, ButtonEntity):
             else:
                 await self.coordinator.client.stop_home_session(self.coordinator.scope)
         except BlossomError as err:
+            self.coordinator.async_record_command_failure(
+                "start" if self.action == "start_charging" else "stop"
+            )
             raise HomeAssistantError("Blossom rejected the charging command") from err
         await self.coordinator.async_begin_confirmation(
             "start" if self.action == "start_charging" else "stop"

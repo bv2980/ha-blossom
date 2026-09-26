@@ -28,6 +28,7 @@ def test_session_units_sorting_and_whitelist():
             "hcpPrice": 4.25,
             "mspPrice": 5,
             "vat": 21,
+            "location_name": "Synthetic home",
             "user": {"email": "private"},
         },
         {"start": "2026-09-21T13:00:00+02:00", "end": None, "kwh": 0, "status": "IN_PROGRESS"},
@@ -37,6 +38,7 @@ def test_session_units_sorting_and_whitelist():
     assert result[1]["duration_minutes"] == 60
     assert result[1]["energy_kwh"] == 12.5
     assert result[1]["amount_eur"] == 4.25
+    assert result[1]["location_name"] == "Synthetic home"
     assert "private" not in str(result)
     assert "2026-09-21T11:00:00+00:00" == result[0]["start"]
 
