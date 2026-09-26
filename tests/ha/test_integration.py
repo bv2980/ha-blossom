@@ -55,7 +55,7 @@ async def test_full_setup_entities_reload_and_delete(hass, mock_api):
         (DOMAIN, "installation"), entry.entry_id
     )
     assert device is not None
-    assert device.sw_version == "0.5.0"
+    assert device.sw_version == "0.5.1"
     diagnostics = await async_get_config_entry_diagnostics(hass, entry)
     assert diagnostics["config_entry"]["card_label"] == "**REDACTED**"
     assert diagnostics["active_session_schema"] == {
@@ -194,6 +194,46 @@ async def test_recent_sessions_are_exposed_as_privacy_safe_calendar_events(hass,
     assert events[0].summary == "Home · 7.50 kWh"
     assert "Amount: €2.75" in events[0].description
     assert events[0].location is None
+
+
+async def test_active_calendar_event_and_dutch_session_text(hass, mock_api):
+    hass.config.language = "nl"
+    start = datetime.now(UTC) - timedelta(minutes=10)
+    mock_api["sessions"].return_value = [
+        {
+            "start": start.isoformat(),
+            "end": None,
+            "duration": 10,
+            "kwh": 1.25,
+            "status": "IN_PROGRESS",
+            "type": "Home",
+            "hcpPrice": 0,
+        }
+    ]
+    mock_api["active"].return_value = [
+        {
+            "deviceStatus": "Charging",
+            "session": {
+                "time_started_session": start.isoformat(),
+                "status": "IN_PROGRESS",
+                "kWh": 1.25,
+            },
+        }
+    ]
+    entry = await configure(hass)
+    calendar = ChargingSessionsCalendar(entry.runtime_data)
+    event = calendar.event
+    assert event is not None
+    assert event.end > datetime.now(UTC)
+    assert event.summary == "Thuis · 1.25 kWh"
+    assert "Status: Bezig" in event.description
+    assert "eindtijd is voorlopig" in event.description
+
+    registry = er.async_get(hass)
+    status_id = registry.async_get_entity_id(
+        "sensor", DOMAIN, f"{entry.unique_id}_active_session_status"
+    )
+    assert hass.states.get(status_id).state == "in_progress"
 
 
 async def test_stale_active_session_creates_and_clears_repair_issue(hass, mock_api):

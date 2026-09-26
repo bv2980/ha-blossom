@@ -2,7 +2,7 @@
 
 Unofficial custom integration maintained by **bv2980**. Not affiliated with Blossom.
 
-## Version 0.5.0: session calendar, options and adaptive updates
+## Version 0.5.1: localized and live session calendar
 
 Sign in with email/password, explicitly select your Blossom account, home installation and
 card, retrieve up to 20 recent sessions, and start or stop a home-charging session. The
@@ -67,6 +67,10 @@ The integration options let you change the card used by Start, select a 5, 15, 3
 default from both the calendar and recent-session attributes. The calendar reuses the same
 maximum of 20 loaded sessions and makes no additional API requests. Add its entity to a
 Home Assistant calendar card to browse those sessions; it is not a complete archive.
+During an active session the calendar exposes a live event, using a provisional end time
+because Home Assistant requires every event to have an end. The final Blossom end time
+replaces it after completion. Calendar summaries, detail labels and known session states
+are localized in English and Dutch.
 
 Home Assistant creates a repair warning if the selected card disappears from Blossom or
 if Blossom's own update time for an active session becomes more than ten minutes old.

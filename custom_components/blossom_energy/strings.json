@@ -104,7 +104,15 @@
       "active_session_start": {"name": "Active session start"},
       "active_session_energy": {"name": "Active session energy"},
       "active_session_last_update": {"name": "Last charging point update"},
-      "active_session_status": {"name": "Active session status"},
+      "active_session_status": {
+        "name": "Active session status",
+        "state": {
+          "in_progress": "In progress",
+          "finished": "Finished",
+          "completed": "Completed",
+          "unknown": "Unknown"
+        }
+      },
       "vehicle_current": {"name": "Vehicle current"},
       "vehicle_phases": {"name": "Vehicle phases"},
       "charger_status": {

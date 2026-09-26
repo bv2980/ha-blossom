@@ -41,6 +41,12 @@ CHARGER_STATE_MAP = {
     "inactive": "inactive",
 }
 COMMAND_STATES = ("idle", "pending", "confirmed", "not_confirmed", "poll_failed", "rejected")
+SESSION_STATES = ("in_progress", "finished", "completed", "unknown")
+SESSION_STATE_MAP = {
+    "in_progress": "in_progress",
+    "finished": "finished",
+    "completed": "completed",
+}
 
 
 async def async_setup_entry(hass, entry, async_add_entities):
@@ -101,6 +107,9 @@ class BlossomSensor(CoordinatorEntity, SensorEntity):
         if key == "command_status":
             self._attr_device_class = SensorDeviceClass.ENUM
             self._attr_options = list(COMMAND_STATES)
+        if key == "active_session_status":
+            self._attr_device_class = SensorDeviceClass.ENUM
+            self._attr_options = list(SESSION_STATES)
         if key == "vehicle_current":
             self._attr_device_class = SensorDeviceClass.CURRENT
             self._attr_native_unit_of_measurement = UnitOfElectricCurrent.AMPERE
@@ -132,7 +141,11 @@ class BlossomSensor(CoordinatorEntity, SensorEntity):
             "active_session_start": timestamp(active.get("start")),
             "active_session_energy": active.get("energy_kwh"),
             "active_session_last_update": timestamp(active.get("last_update")),
-            "active_session_status": active.get("session_status"),
+            "active_session_status": SESSION_STATE_MAP.get(
+                str(active.get("session_status", "")).lower(), "unknown"
+            )
+            if active
+            else None,
             "vehicle_current": active.get("vehicle_current"),
             "vehicle_phases": active.get("vehicle_phases"),
             "charger_status": CHARGER_STATE_MAP.get(str(data["charger_status"]).lower(), "unknown"),

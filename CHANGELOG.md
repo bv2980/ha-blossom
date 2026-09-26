@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.1
+
+- Translate known active-session states such as `IN_PROGRESS` and `FINISHED`.
+- Localize calendar summaries and detail labels in English and Dutch.
+- Expose the current charging session as the active calendar event.
+- Mark the moving end time of an active calendar event as provisional.
+
 ## 0.5.0
 
 - Add a read-only calendar for the maximum of 20 loaded recent charging sessions.

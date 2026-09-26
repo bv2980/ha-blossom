@@ -104,7 +104,15 @@
       "active_session_start": {"name": "Start actieve sessie"},
       "active_session_energy": {"name": "Energie actieve sessie"},
       "active_session_last_update": {"name": "Laatste update laadpunt"},
-      "active_session_status": {"name": "Status actieve sessie"},
+      "active_session_status": {
+        "name": "Status actieve sessie",
+        "state": {
+          "in_progress": "Bezig",
+          "finished": "Voltooid",
+          "completed": "Voltooid",
+          "unknown": "Onbekend"
+        }
+      },
       "vehicle_current": {"name": "Stroom voertuig"},
       "vehicle_phases": {"name": "Fasen voertuig"},
       "charger_status": {
