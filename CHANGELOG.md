@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.2
+
+- Read active-session start, energy and remuneration type from Blossom's observed nested
+  `session` object.
+- Add the home-charger status returned by Blossom.
+- Extend privacy-safe diagnostics with nested active-session field names, never values.
+
 ## 0.4.1
 
 - Show the integration software version in the Home Assistant device information.

@@ -41,7 +41,7 @@ async def test_full_setup_entities_reload_and_delete(hass, mock_api):
     saved = await Store(hass, 1, entry.data["token_store"]).async_load()
     assert saved == {"refresh_token": "synthetic-refresh"}
     states = hass.states.async_all("sensor")
-    assert len(states) == 15
+    assert len(states) == 16
     assert any(s.state == "7.5" for s in states)
     assert "synthetic-refresh" not in str(states)
     assert "synthetic-password" not in str(states)
@@ -50,15 +50,20 @@ async def test_full_setup_entities_reload_and_delete(hass, mock_api):
         (DOMAIN, "installation"), entry.entry_id
     )
     assert device is not None
-    assert device.sw_version == "0.4.1"
+    assert device.sw_version == "0.4.2"
     diagnostics = await async_get_config_entry_diagnostics(hass, entry)
     assert diagnostics["config_entry"]["card_label"] == "**REDACTED**"
-    assert diagnostics["active_session_schema"] == {"field_count": 0, "field_names": []}
+    assert diagnostics["active_session_schema"] == {
+        "field_count": 0,
+        "field_names": [],
+        "session_field_count": 0,
+        "session_field_names": [],
+    }
     assert not hass.services.has_service(DOMAIN, "start_charging")
     assert await hass.config_entries.async_reload(entry.entry_id)
     await hass.async_block_till_done()
     assert entry.state == ConfigEntryState.LOADED
-    assert len(hass.states.async_all("sensor")) == 15
+    assert len(hass.states.async_all("sensor")) == 16
     key = entry.data["token_store"]
     await hass.config_entries.async_remove(entry.entry_id)
     await hass.async_block_till_done()
@@ -72,9 +77,13 @@ async def test_refreshes_legacy_card_label_and_reports_only_active_field_names(h
     )
     mock_api["active"].return_value = [
         {
-            "time_started_session": "2026-09-26T10:00:00Z",
-            "kWh": 1.5,
-            "privateValue": "must-not-appear",
+            "deviceStatus": "charging",
+            "kind": "home",
+            "session": {
+                "time_started_session": "2026-09-26T10:00:00Z",
+                "kWh": 1.5,
+                "privateValue": "must-not-appear",
+            },
         }
     ]
     assert await hass.config_entries.async_reload(entry.entry_id)
@@ -83,7 +92,9 @@ async def test_refreshes_legacy_card_label_and_reports_only_active_field_names(h
     diagnostics = await async_get_config_entry_diagnostics(hass, entry)
     assert diagnostics["active_session_schema"] == {
         "field_count": 3,
-        "field_names": ["kWh", "privateValue", "time_started_session"],
+        "field_names": ["deviceStatus", "kind", "session"],
+        "session_field_count": 3,
+        "session_field_names": ["kWh", "privateValue", "time_started_session"],
     }
     assert "must-not-appear" not in str(diagnostics)
 

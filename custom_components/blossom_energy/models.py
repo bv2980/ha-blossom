@@ -65,15 +65,19 @@ def session_summaries(rows):
 
 
 def active_session_summary(rows):
-    """Map the smaller active-home-session response without retaining raw data."""
+    """Map the nested active-home-session response without retaining raw data."""
     if not rows:
         return {}
     row = rows[0]
-    start = timestamp(row.get("time_started_session") or row.get("start"))
+    session = row.get("session")
+    payload = session if isinstance(session, dict) else row
+    start = timestamp(payload.get("time_started_session") or payload.get("start"))
+    device_status = row.get("deviceStatus")
     return {
         "start": start.isoformat() if start else None,
-        "energy_kwh": number(row.get("kWh", row.get("kwh"))),
-        "remuneration_type": str(row.get("remuneration_type", "unknown"))[:40],
+        "energy_kwh": number(payload.get("kWh", payload.get("kwh"))),
+        "remuneration_type": str(payload.get("remuneration_type", "unknown"))[:40],
+        "device_status": str(device_status)[:80] if isinstance(device_status, str) else None,
     }
 
 

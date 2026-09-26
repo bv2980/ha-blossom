@@ -80,6 +80,7 @@
       },
       "active_session_start": {"name": "Start actieve sessie"},
       "active_session_energy": {"name": "Energie actieve sessie"},
+      "charger_status": {"name": "Status thuislader"},
       "command_status": {"name": "Laatste laadopdracht"}
     },
     "button": {

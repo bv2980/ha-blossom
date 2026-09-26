@@ -2,7 +2,7 @@
 
 Unofficial custom integration maintained by **bv2980**. Not affiliated with Blossom.
 
-## Version 0.4.1: command confirmation and session pricing
+## Version 0.4.2: active-session details and session pricing
 
 Sign in with email/password, explicitly select your Blossom account, home installation and
 card, retrieve up to 20 recent sessions, and start or stop a home-charging session. The
@@ -38,7 +38,7 @@ milestone, remove the entry and configure it again.
   reimbursement, when returned.
 - Last successful update and a manual refresh button.
 - Active home-session status and explicit start/stop buttons on one HA device page.
-- Active-session start and energy, plus privacy-safe command-confirmation diagnostics.
+- Active-session start, energy and Blossom charger status, plus privacy-safe diagnostics.
 - Integration version in device information and privacy-safe active-response field diagnostics.
 
 Regular updates are coordinated every 15 minutes. Account scope is validated first;

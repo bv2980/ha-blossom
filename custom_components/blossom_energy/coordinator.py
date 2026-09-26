@@ -74,6 +74,7 @@ class BlossomCoordinator(DataUpdateCoordinator):
                 "selected_card_label": str((selected or {}).get("label", ""))[:100],
                 "active_session": "active" if active_rows else "inactive",
                 "active_session_details": active,
+                "charger_status": active.get("device_status") or "inactive",
                 "active_session_schema": _safe_schema(active_rows),
                 "command": dict(self.command),
             }
@@ -148,8 +149,25 @@ class BlossomCoordinator(DataUpdateCoordinator):
 def _safe_schema(rows):
     """Expose field names, never values, to diagnose upstream schema changes."""
     if not rows:
-        return {"field_count": 0, "field_names": []}
-    names = sorted(
-        key[:80] for key in rows[0] if isinstance(key, str) and key.replace("_", "").isalnum()
-    )[:50]
-    return {"field_count": len(rows[0]), "field_names": names}
+        return {
+            "field_count": 0,
+            "field_names": [],
+            "session_field_count": 0,
+            "session_field_names": [],
+        }
+
+    def names(value):
+        if not isinstance(value, dict):
+            return []
+        return sorted(
+            key[:80] for key in value if isinstance(key, str) and key.replace("_", "").isalnum()
+        )[:50]
+
+    row = rows[0]
+    session = row.get("session")
+    return {
+        "field_count": len(row),
+        "field_names": names(row),
+        "session_field_count": len(session) if isinstance(session, dict) else 0,
+        "session_field_names": names(session),
+    }

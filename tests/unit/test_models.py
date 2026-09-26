@@ -81,7 +81,32 @@ def test_active_session_uses_active_endpoint_field_names():
         "start": "2026-09-25T12:00:00+00:00",
         "energy_kwh": 3.2,
         "remuneration_type": "hcp",
+        "device_status": None,
     }
+
+
+def test_active_session_uses_observed_nested_session_shape():
+    result = active_session_summary(
+        [
+            {
+                "deviceStatus": "charging",
+                "kind": "home",
+                "session": {
+                    "time_started_session": "2026-09-26T09:30:00Z",
+                    "kWh": "4.75",
+                    "remuneration_type": "hcp",
+                    "private": {"email": "must-not-appear"},
+                },
+            }
+        ]
+    )
+    assert result == {
+        "start": "2026-09-26T09:30:00+00:00",
+        "energy_kwh": 4.75,
+        "remuneration_type": "hcp",
+        "device_status": "charging",
+    }
+    assert "must-not-appear" not in str(result)
 
 
 def test_manifest_and_code_versions_match():

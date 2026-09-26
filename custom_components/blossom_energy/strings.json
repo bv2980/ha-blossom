@@ -80,6 +80,7 @@
       },
       "active_session_start": {"name": "Active session start"},
       "active_session_energy": {"name": "Active session energy"},
+      "charger_status": {"name": "Home charger status"},
       "command_status": {"name": "Last charging command"}
     },
     "button": {

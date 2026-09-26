@@ -28,6 +28,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
             "active_session",
             "active_session_start",
             "active_session_energy",
+            "charger_status",
             "command_status",
         )
     )
@@ -77,6 +78,7 @@ class BlossomSensor(CoordinatorEntity, SensorEntity):
             "active_session": data["active_session"],
             "active_session_start": timestamp(active.get("start")),
             "active_session_energy": active.get("energy_kwh"),
+            "charger_status": data["charger_status"],
             "command_status": data["command"]["state"],
         }[self.key]
 
