@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.3
+
+- Show the selected Blossom account and charging card in the main Sensors section.
+- Translate raw OCPP charger states into readable English and Dutch values.
+- Add the active-session last-update timestamp and bounded charger/session details.
+- Keep account and card identifiers out of entity states and diagnostics.
+
 ## 0.4.2
 
 - Read active-session start, energy and remuneration type from Blossom's observed nested

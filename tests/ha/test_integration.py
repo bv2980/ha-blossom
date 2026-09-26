@@ -41,7 +41,7 @@ async def test_full_setup_entities_reload_and_delete(hass, mock_api):
     saved = await Store(hass, 1, entry.data["token_store"]).async_load()
     assert saved == {"refresh_token": "synthetic-refresh"}
     states = hass.states.async_all("sensor")
-    assert len(states) == 16
+    assert len(states) == 18
     assert any(s.state == "7.5" for s in states)
     assert "synthetic-refresh" not in str(states)
     assert "synthetic-password" not in str(states)
@@ -50,7 +50,7 @@ async def test_full_setup_entities_reload_and_delete(hass, mock_api):
         (DOMAIN, "installation"), entry.entry_id
     )
     assert device is not None
-    assert device.sw_version == "0.4.2"
+    assert device.sw_version == "0.4.3"
     diagnostics = await async_get_config_entry_diagnostics(hass, entry)
     assert diagnostics["config_entry"]["card_label"] == "**REDACTED**"
     assert diagnostics["active_session_schema"] == {
@@ -63,7 +63,7 @@ async def test_full_setup_entities_reload_and_delete(hass, mock_api):
     assert await hass.config_entries.async_reload(entry.entry_id)
     await hass.async_block_till_done()
     assert entry.state == ConfigEntryState.LOADED
-    assert len(hass.states.async_all("sensor")) == 16
+    assert len(hass.states.async_all("sensor")) == 18
     key = entry.data["token_store"]
     await hass.config_entries.async_remove(entry.entry_id)
     await hass.async_block_till_done()

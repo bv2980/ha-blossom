@@ -7,6 +7,7 @@ import pytest
 from blossom_test_client.api import ProtocolError
 from blossom_test_client.models import (
     active_session_summary,
+    member_name,
     number,
     scope_choices,
     session_amount,
@@ -79,9 +80,13 @@ def test_active_session_uses_active_endpoint_field_names():
     )
     assert result == {
         "start": "2026-09-25T12:00:00+00:00",
+        "last_update": None,
         "energy_kwh": 3.2,
         "remuneration_type": "hcp",
         "device_status": None,
+        "session_status": None,
+        "vehicle_current": None,
+        "vehicle_phases": None,
     }
 
 
@@ -93,8 +98,12 @@ def test_active_session_uses_observed_nested_session_shape():
                 "kind": "home",
                 "session": {
                     "time_started_session": "2026-09-26T09:30:00Z",
+                    "time_last_update": "2026-09-26T09:31:00Z",
                     "kWh": "4.75",
                     "remuneration_type": "hcp",
+                    "status": "ACTIVE",
+                    "vehicle_current": 13,
+                    "vehicle_phases": 3,
                     "private": {"email": "must-not-appear"},
                 },
             }
@@ -102,11 +111,23 @@ def test_active_session_uses_observed_nested_session_shape():
     )
     assert result == {
         "start": "2026-09-26T09:30:00+00:00",
+        "last_update": "2026-09-26T09:31:00+00:00",
         "energy_kwh": 4.75,
         "remuneration_type": "hcp",
         "device_status": "charging",
+        "session_status": "ACTIVE",
+        "vehicle_current": 13.0,
+        "vehicle_phases": 3.0,
     }
     assert "must-not-appear" not in str(result)
+
+
+def test_member_name_prefers_readable_company_data_without_an_id():
+    assert member_name({"company": {"name": "Example Energy"}, "id": "private"}) == (
+        "Example Energy"
+    )
+    assert member_name({"email": "person@example.invalid"}) == "person@example.invalid"
+    assert member_name({"id": "private"}) == "Blossom account"
 
 
 def test_manifest_and_code_versions_match():

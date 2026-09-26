@@ -80,7 +80,24 @@
       },
       "active_session_start": {"name": "Start actieve sessie"},
       "active_session_energy": {"name": "Energie actieve sessie"},
-      "charger_status": {"name": "Status thuislader"},
+      "active_session_last_update": {"name": "Laatste update laadpunt"},
+      "charger_status": {
+        "name": "Status laadpunt",
+        "state": {
+          "inactive": "Geen actieve sessie",
+          "available": "Beschikbaar",
+          "preparing": "Voertuig aangesloten",
+          "charging": "Laden",
+          "suspended_by_charger": "Gepauzeerd door laadpunt",
+          "suspended_by_vehicle": "Gepauzeerd door voertuig",
+          "finishing": "Sessie afronden",
+          "reserved": "Gereserveerd",
+          "unavailable": "Niet beschikbaar",
+          "faulted": "Storing",
+          "unknown": "Onbekend"
+        }
+      },
+      "account": {"name": "Blossom-account"},
       "command_status": {"name": "Laatste laadopdracht"}
     },
     "button": {

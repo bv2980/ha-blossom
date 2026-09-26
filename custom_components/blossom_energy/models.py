@@ -72,13 +72,35 @@ def active_session_summary(rows):
     session = row.get("session")
     payload = session if isinstance(session, dict) else row
     start = timestamp(payload.get("time_started_session") or payload.get("start"))
+    last_update = timestamp(payload.get("time_last_update"))
     device_status = row.get("deviceStatus")
     return {
         "start": start.isoformat() if start else None,
+        "last_update": last_update.isoformat() if last_update else None,
         "energy_kwh": number(payload.get("kWh", payload.get("kwh"))),
         "remuneration_type": str(payload.get("remuneration_type", "unknown"))[:40],
         "device_status": str(device_status)[:80] if isinstance(device_status, str) else None,
+        "session_status": _bounded_text(payload.get("status")),
+        "vehicle_current": number(payload.get("vehicle_current")),
+        "vehicle_phases": number(payload.get("vehicle_phases")),
     }
+
+
+def _bounded_text(value):
+    return str(value)[:80] if isinstance(value, str) and value else None
+
+
+def member_name(value):
+    """Return a readable selected-account label without exposing an internal ID."""
+    company = value.get("company") if isinstance(value.get("company"), dict) else {}
+    name = (
+        company.get("name")
+        or value.get("companyName")
+        or value.get("employerName")
+        or value.get("name")
+        or value.get("email")
+    )
+    return str(name)[:100] if name else "Blossom account"
 
 
 def scope_choices(user):

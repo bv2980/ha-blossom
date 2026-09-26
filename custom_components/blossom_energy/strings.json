@@ -80,7 +80,24 @@
       },
       "active_session_start": {"name": "Active session start"},
       "active_session_energy": {"name": "Active session energy"},
-      "charger_status": {"name": "Home charger status"},
+      "active_session_last_update": {"name": "Last charging point update"},
+      "charger_status": {
+        "name": "Charging point state",
+        "state": {
+          "inactive": "No active session",
+          "available": "Available",
+          "preparing": "Vehicle connected",
+          "charging": "Charging",
+          "suspended_by_charger": "Paused by charging point",
+          "suspended_by_vehicle": "Paused by vehicle",
+          "finishing": "Finishing session",
+          "reserved": "Reserved",
+          "unavailable": "Unavailable",
+          "faulted": "Fault",
+          "unknown": "Unknown"
+        }
+      },
+      "account": {"name": "Blossom account"},
       "command_status": {"name": "Last charging command"}
     },
     "button": {

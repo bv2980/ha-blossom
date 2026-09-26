@@ -2,7 +2,7 @@
 
 Unofficial custom integration maintained by **bv2980**. Not affiliated with Blossom.
 
-## Version 0.4.2: active-session details and session pricing
+## Version 0.4.3: readable charger, account and card information
 
 Sign in with email/password, explicitly select your Blossom account, home installation and
 card, retrieve up to 20 recent sessions, and start or stop a home-charging session. The
@@ -32,13 +32,14 @@ milestone, remove the entry and configure it again.
 ## What is available
 
 - Available-card count, with card labels/types/IDs in attributes.
-- Selected card and whether it still appears in the available-card list.
+- Readable Blossom account and selected card information, without exposing internal IDs.
 - Recent-session count, with a maximum of 20 summaries in the `sessions` attribute.
 - Last **completed** session start/end, type, energy, duration, displayed amount and home
   reimbursement, when returned.
 - Last successful update and a manual refresh button.
 - Active home-session status and explicit start/stop buttons on one HA device page.
-- Active-session start, energy and Blossom charger status, plus privacy-safe diagnostics.
+- Active-session start, energy and last update time.
+- A translated charging-point state, with bounded OCPP and vehicle details in attributes.
 - Integration version in device information and privacy-safe active-response field diagnostics.
 
 Regular updates are coordinated every 15 minutes. Account scope is validated first;

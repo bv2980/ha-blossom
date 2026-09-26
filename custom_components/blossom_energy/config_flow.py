@@ -18,7 +18,7 @@ from .api import (
     login,
 )
 from .const import DOMAIN
-from .models import scope_choices, session_summaries
+from .models import member_name, scope_choices, session_summaries
 from .storage import save_refresh_token
 
 API_ERRORS = (AuthError, ConnectionError, PermissionError, ProtocolError, RateLimitError)
@@ -135,7 +135,7 @@ class BlossomEnergyConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         return await self.async_step_card()
                 except API_ERRORS as err:
                     errors["base"] = error_key(err)
-        members = _friendly_choices(self.members, "Blossom account", _member_name)
+        members = _friendly_choices(self.members, "Blossom account", member_name)
         installations = _friendly_choices(
             self.installations, "Home charging installation", _installation_name
         )
@@ -185,17 +185,6 @@ class BlossomEnergyConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             ),
             errors=errors,
         )
-
-
-def _member_name(value):
-    company = value.get("company") if isinstance(value.get("company"), dict) else {}
-    return (
-        company.get("name")
-        or value.get("companyName")
-        or value.get("employerName")
-        or value.get("name")
-        or value.get("email")
-    )
 
 
 def _installation_name(value):

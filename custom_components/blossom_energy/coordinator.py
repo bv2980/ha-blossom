@@ -10,7 +10,7 @@ from homeassistant.util import dt as dt_util
 
 from .api import AuthError, BlossomError, PermissionError, RateLimitError
 from .const import DOMAIN
-from .models import active_session_summary, scope_choices, session_summaries
+from .models import active_session_summary, member_name, scope_choices, session_summaries
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -72,6 +72,8 @@ class BlossomCoordinator(DataUpdateCoordinator):
                     c["id"] == self.entry.data["card_id"] for c in cards
                 ),
                 "selected_card_label": str((selected or {}).get("label", ""))[:100],
+                "selected_card_type": str((selected or {}).get("type", ""))[:40],
+                "account_label": member_name(member),
                 "active_session": "active" if active_rows else "inactive",
                 "active_session_details": active,
                 "charger_status": active.get("device_status") or "inactive",
