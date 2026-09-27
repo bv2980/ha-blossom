@@ -1,151 +1,296 @@
-# Blossom Energy for Home Assistant
+<p align="center">
+  <img src="artwork/icon-modern.png" alt="Blossom Energy icon" width="140">
+</p>
 
-Unofficial custom integration maintained by **bv2980**. Not affiliated with Blossom.
+<h1 align="center">Blossom Energy for Home Assistant</h1>
 
-## Version 0.5.1: localized and live session calendar
+<p align="center">
+  Monitor charging sessions, browse recent history and authorize home charging from Home Assistant.
+</p>
 
-Sign in with email/password, explicitly select your Blossom account, home installation and
-card, retrieve up to 20 recent sessions, and start or stop a home-charging session. The
-integration does not change card or energy-management settings. Compatibility target:
-Home Assistant Core **2026.9.3** or newer.
+<p align="center">
+  <a href="https://github.com/bv2980/ha-blossom/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/bv2980/ha-blossom"></a>
+  <a href="https://github.com/bv2980/ha-blossom/actions/workflows/validate.yml"><img alt="Validation" src="https://github.com/bv2980/ha-blossom/actions/workflows/validate.yml/badge.svg"></a>
+  <img alt="HACS custom repository" src="https://img.shields.io/badge/HACS-Custom-41BDF5.svg">
+  <img alt="Home Assistant 2026.9.3 tested" src="https://img.shields.io/badge/Home%20Assistant-tested%202026.9.3-18BCF2.svg">
+</p>
 
-This is experimental. Automated tests use synthetic data. Successful authentication
-and the returned data must still be checked against your own account in HA.
+> [!IMPORTANT]
+> This is an unofficial community integration maintained by **bv2980**. It is not affiliated
+> with or supported by Blossom. Authentication uses Blossom's web login, which is not a
+> confirmed public third-party API and can change without notice.
 
-## Install or update through HACS
+## Highlights
 
-1. In HACS > three-dot menu > Custom repositories, add
-   `https://github.com/bv2980/ha-blossom` with type **Integration**.
-2. Download the latest release, then restart Home Assistant Core.
-3. If upgrading from 0.1.0, delete only the **Blossom Energy — installation test**
-   entry under Settings > Devices & services. Keep the integration installed in HACS.
-   The old test entry contains no credentials or entities; it has no account to migrate.
-4. Add **Blossom Energy** under Settings > Devices & services > Add integration.
-5. Enter your Blossom email/password locally in HA. Select the membership and home
-   installation that belong together, then select your charging card.
+- Sign in through the Home Assistant UI with your Blossom email and password.
+- Select the account, home installation and charging card explicitly.
+- Start and stop a home-charging session from the device page or an automation.
+- Confirm commands without blindly resending them.
+- Follow the active session, energy, status and charging-point state.
+- Browse up to 20 recent home and public sessions in a Home Assistant calendar.
+- See the last completed session's time, energy, duration, price and reimbursement.
+- Change the charging card, idle refresh interval and location privacy through **Configure**.
+- Receive Home Assistant repair warnings for a missing card or stale active session.
+- Use English or Dutch entity and calendar text.
+- Download privacy-conscious diagnostics without credentials or internal account identifiers.
 
-No YAML, shell commands, external service or manual dependency installation is needed.
-One installation per Blossom account is currently supported. Different accounts can
-have separate entries and token stores. To change membership/installation/card in this
-milestone, remove the entry and configure it again.
+## Architecture and responsibilities
 
-## What is available
+```mermaid
+flowchart LR
+    B[Blossom cloud] <-->|Auth, sessions, authorization| I[Blossom Energy integration]
+    I --> H[Home Assistant entities and calendar]
+    H --> A[Your automations]
+    E[EMS / charger control] --> C[Charging point]
+    A -.->|Optional start or stop request| I
+```
 
-- Available-card count, with card labels/types/IDs in attributes.
-- Readable Blossom account and selected card information, without exposing internal IDs.
-- Recent-session count, with a maximum of 20 summaries in the `sessions` attribute.
-- Last **completed** session start/end, type, energy, duration, displayed amount and home
-  reimbursement, when returned.
-- Last successful update and a manual refresh button.
-- Active home-session status and explicit start/stop buttons on one HA device page.
-- Active-session start, energy and last update time.
-- A translated charging-point state, with bounded OCPP and vehicle details in attributes.
-- A binary active-session entity for automations, plus vehicle current, phases and session status.
-- A read-only calendar containing the loaded recent sessions and their bounded details.
-- Integration version in device information and privacy-safe active-response field diagnostics.
+The integration handles **Blossom authentication and session authorization**. It does not
+control charger current, load balancing, solar charging or an energy-management system.
+Vehicle recognition also belongs in your Home Assistant automation, not in this integration.
 
-Regular updates use the configured interval (15 minutes by default). An active session updates
-every minute. Account scope is validated first;
-cards, history and active-session status are then fetched concurrently. After Start or Stop, the integration
-checks the active-session endpoint every 10 seconds for at most one minute and stops as
-soon as Blossom confirms the requested state. It never resends a charging command.
-Session history comes from the employee `recent` endpoint using the selected membership
-and installation parameters. It can include home and public charging; it is **not filtered
-to the selected card**. The card selection does not prove vehicle identity or authorize a
-session. Starting home charging uses the card selected during setup. No complete archive
-or monthly total is calculated from this limited window.
-Empty history is valid; last-session measurements are unknown until a completed session
-with the relevant fields exists. Unavailable data is never replaced with zero.
+## Installation with HACS
 
-The amount follows Blossom's web app: home sessions use `hcpPrice`; other sessions use
-`mspPrice` including the returned VAT percentage (21% when Blossom omits it). The source
-price and VAT are available as bounded attributes for verification.
-These session-energy sensors are not cumulative meters for the Energy dashboard.
+1. Open **HACS**.
+2. Open the three-dot menu and select **Custom repositories**.
+3. Add `https://github.com/bv2980/ha-blossom` as type **Integration**.
+4. Open **Blossom Energy** in HACS and download the latest release.
+5. Restart Home Assistant Core.
+6. Go to **Settings → Devices & services → Add integration**.
+7. Search for **Blossom Energy** and sign in.
+8. Select the matching Blossom account, home installation and charging card.
 
-The integration options let you change the card used by Start, select a 5, 15, 30 or
-60-minute idle refresh interval and opt in to session locations. Locations are hidden by
-default from both the calendar and recent-session attributes. The calendar reuses the same
-maximum of 20 loaded sessions and makes no additional API requests. Add its entity to a
-Home Assistant calendar card to browse those sessions; it is not a complete archive.
-During an active session the calendar exposes a live event, using a provisional end time
-because Home Assistant requires every event to have an end. The final Blossom end time
-replaces it after completion. Calendar summaries, detail labels and known session states
-are localized in English and Dutch.
+No YAML, shell commands or additional dependencies are required for installation.
 
-Home Assistant creates a repair warning if the selected card disappears from Blossom or
-if Blossom's own update time for an active session becomes more than ten minutes old.
-Authentication failures use Home Assistant's normal reauthentication flow. The integration
-keeps the existing text session sensor for compatibility and also exposes a binary active
-session sensor for simpler automations.
+### Updating
 
-## Authentication and storage
+Install the update in HACS and restart Home Assistant. If HACS has not discovered a newly
+published version yet, use **Update information** or **Redownload** from the HACS menu.
 
-The asynchronous API client is isolated from Home Assistant. It follows the web app's
-Auth0 authorization-code + PKCE flow, validates the callback host/path and OAuth state,
-and only sends credentials to the production Auth0 host. It does not fetch the callback
-URL. The password is discarded after login. MFA, CAPTCHA and social login are not
-supported; the integration reports a sign-in error instead of bypassing them.
+Users upgrading from the old v0.1.0 installation test should remove only the
+**Blossom Energy — installation test** entry before adding the authenticated integration.
 
-This first-party web-login flow is **not a confirmed supported third-party contract**.
-Blossom can change it. A supported browser OAuth flow remains the preferred future route
-if Blossom supplies a suitable client registration and redirect URI.
+## Configuration options
 
-Access tokens stay in memory. Refresh tokens are saved with Home Assistant's atomic
-storage helper under a separate random key for each entry. This storage is local, not
-an encrypted vault: protect HA access and backups. Token refresh is serialized, and a
-rotated token is saved before further API requests. An ambiguous refresh timeout requires
-a new sign-in instead of blindly replaying a potentially consumed token. A sudden process
-or disk failure during rotation may also require signing in again.
+Open **Settings → Devices & services → Blossom Energy → Configure**.
 
-No credentials, tokens, raw responses or authentication URLs are logged. Deleting an entry
-removes its token store; it does not revoke the login at Blossom. Never upload `.storage`,
-HA backups, tokens or real API responses to GitHub.
+| Option | Default | Purpose |
+|---|---:|---|
+| Charging card | Selected during setup | Card used when Home Assistant starts home charging |
+| Idle refresh interval | 15 minutes | Choose 5, 15, 30 or 60 minutes |
+| Show session locations | Off | Allow returned location names in calendar and session attributes |
 
-## Acceptance checks in HA
+Changing an option reloads the entry. A different account or home installation currently
+requires removing and adding the entry again. Different Blossom accounts can use separate
+entries and separate token stores.
 
-1. Sign in and verify the membership, installation and available cards are yours.
-2. Compare recent session dates, kWh and minutes with the Blossom app. The list and calendar
-   can include public charging. View the bounded list under the recent-session sensor's attributes.
-3. Press **Refresh Blossom data**; verify the last successful update changes.
-4. Reload the entry. Confirm entities recover without another password prompt.
-5. At a convenient moment, restart HA; confirm saved tokens restore the connection.
-6. Report the exact user-facing error and the step if something fails, without secrets.
+## Entities
 
-The generic HA warning about a custom integration is expected. Setup exceptions are not.
-If no cards are available or the response format changes, setup stops with an explicit
-error. Vehicle-specific automatic charging remains outside this release.
+All entities are grouped under one **Blossom home charging** service device.
 
-## Architecture and tests
+### Controls
 
-- `api.py`: HA-independent async HTTP, PKCE login, token lifecycle and allowlisted endpoints.
-- `models.py`: explicit data validation and privacy-conscious session summaries.
-- `config_flow.py`: login, explicit scope/card selection and same-account reauthentication.
-- `coordinator.py`: shared updates and bounded command-confirmation polling.
-- `sensor.py`, `binary_sensor.py`, `button.py`: status entities, refresh and charging controls.
-- `calendar.py`: read-only calendar events built from the already loaded session window.
-- `diagnostics.py`: privacy-safe Home Assistant diagnostics without identifiers or tokens.
-- `__init__.py`: setup, unloading and token cleanup on removal.
+| Entity | Description |
+|---|---|
+| Start home charging | Starts a session with the selected Blossom card |
+| Stop home charging | Stops the active home session |
+| Refresh Blossom data | Requests an immediate full update |
 
-Unit tests cover callback validation, credential destinations, token reuse/rotation,
-concurrency, persistence failures, HTTP errors, unknown data shapes and session units.
-GitHub Actions additionally tests setup, entities, reauthentication, reload and removal
-against real HA 2026.9.3 with mocked cloud calls, and runs HA manifest validation.
+Start is available when Blossom reports no active session. Stop is available during an
+active session. After either command, the integration checks every 10 seconds for at most
+one minute. It sends the command only once.
 
-Local client tests (Python 3.12+): `pytest tests/unit`.
-HA tests require Python 3.14 and `pytest-homeassistant-custom-component==0.13.366`.
-No test needs a real Blossom account.
+### Active session
 
-## Removal and rollback
+| Entity | Description |
+|---|---|
+| Active Blossom session | Binary sensor intended for automations |
+| Home charging session | Compatibility text sensor: `active`, `inactive`, `starting` or `stopping` |
+| Active session start | Start time reported by Blossom |
+| Active session energy | Current session energy in kWh |
+| Active session status | Localized status such as **In progress / Bezig** |
+| Last charging point update | Timestamp supplied by the active session |
+| Charging point state | Localized OCPP-style state such as charging or suspended |
+| Vehicle current | Vehicle current when Blossom supplies it |
+| Vehicle phases | Vehicle phase count when Blossom supplies it |
 
-Remove the entry under Devices & services to remove its entities and local token store.
-Then remove the integration in HACS and restart Core if you want to uninstall it.
-To return to 0.1.0, first remove the authenticated 0.2.0 entry, download 0.1.0 in HACS,
-and restart. Version 0.1.0 cannot load authenticated entries from 0.2.0.
+`Vehicle current` and `Vehicle phases` can remain **Unknown**. Blossom includes these fields
+in the response schema but does not necessarily populate them for every charger or session.
+Unavailable measurements are never replaced with zero.
+
+### Last completed session
+
+| Entity | Description |
+|---|---|
+| Last completed session start/end | Final session timestamps |
+| Last completed session energy | Session energy in kWh |
+| Last completed session duration | Duration in minutes |
+| Last completed session type | Home or public charging |
+| Last completed session amount | Amount displayed by Blossom |
+| Last home reimbursement | Home reimbursement when returned |
+
+For home sessions, the displayed amount follows `hcpPrice`. For other sessions it follows
+`mspPrice` plus the returned VAT percentage, using 21% only when Blossom omits VAT. Source
+price details remain available as bounded attributes for verification.
+
+### Account, history and diagnostics
+
+| Entity | Description |
+|---|---|
+| Blossom account | Readable selected account or company |
+| Selected charging card | Card used by Start and whether it remains available |
+| Loaded recent sessions | Count and bounded summaries of at most 20 sessions |
+| Available charging cards | Diagnostic count and returned card choices |
+| Last charging command | Idle, pending, confirmed, rejected or confirmation failure |
+| Last successful update | Time of the most recent successful cloud update |
+
+Session history is scoped to the selected membership and installation, but it is not
+filtered to the selected card. It can therefore contain both home and public sessions.
+
+## Session calendar
+
+The **Charging sessions / Laadsessies** calendar presents the same maximum of 20 sessions
+already loaded by the coordinator. It makes no extra API calls and is not a permanent archive.
+
+- Completed sessions use Blossom's final start and end times.
+- The active session is shown as the current event.
+- Home Assistant requires an end time, so an active event receives a clearly marked
+  provisional end that moves forward until Blossom supplies the final end.
+- Events include available energy, duration, amount, reimbursement and localized status.
+- Location is included only after the location option is enabled.
+- When a session falls outside Blossom's latest 20 records, it disappears from the calendar.
+
+Open **Calendar** from the Home Assistant sidebar and select **Charging sessions**, or add a
+Calendar card to a dashboard and select the calendar entity. A calendar entity is `On` only
+while an event is active; `Off` does not mean that historical events are missing.
+
+## Refresh and command strategy
+
+| Situation | Behaviour |
+|---|---|
+| No active session | Configured idle interval, 15 minutes by default |
+| Active Blossom session | Full update every minute |
+| Immediately after Start or Stop | Active-session check every 10 seconds, for at most one minute |
+| Manual refresh | Immediate full update |
+
+Each full update validates the account and installation first. Cards, recent history and
+active-session state are then fetched concurrently. A temporary failure leaves entities
+unavailable rather than presenting stale data as current.
+
+## Automation example
+
+Vehicle detection should come from the vehicle integration. The following example starts
+Blossom only on a new cable connection, when that vehicle is home and no Blossom session is
+already active. Replace the entity IDs with your own.
+
+```yaml
+alias: Start Blossom charging when my car connects at home
+triggers:
+  - trigger: state
+    entity_id: binary_sensor.my_car_charge_cable
+    from: "off"
+    to: "on"
+conditions:
+  - condition: state
+    entity_id: device_tracker.my_car_location
+    state: home
+  - condition: state
+    entity_id: binary_sensor.blossom_home_charging_active_blossom_session
+    state: "off"
+actions:
+  - action: button.press
+    target:
+      entity_id: button.blossom_home_charging_start_home_charging
+mode: single
+```
+
+Triggering only on the cable transition also prevents an automatic restart after a manual
+stop. A new attempt requires disconnecting and reconnecting the cable.
+
+## Repairs and troubleshooting
+
+The integration creates a Home Assistant repair warning when:
+
+- the selected charging card is no longer returned by Blossom;
+- an active session's own last-update timestamp becomes more than 10 minutes old.
+
+Authentication expiry starts Home Assistant's normal reauthentication flow.
+
+| Symptom | Explanation or action |
+|---|---|
+| Calendar entity is `Off` | Normal when no event is active; historical sessions can still exist |
+| Current or phases are `Unknown` | Blossom did not populate those optional values |
+| Active values become `Unknown` after disconnecting | Expected because the active-session object no longer exists |
+| Start and Stop appear as `Pressed` in Activity | Button availability changes can make the HA logbook misleading; check **Last charging command** |
+| HACS still shows an older version | Use **Update information** or **Redownload**, then restart HA |
+| Sign-in fails | Verify credentials on Blossom's website; MFA, CAPTCHA and social login are unsupported |
+| No cards are shown | Confirm the selected account and home installation in Blossom |
+
+When reporting a problem, include Home Assistant diagnostics and the user-visible error.
+Never publish a Home Assistant backup, `.storage` files, tokens or raw account responses.
+
+## Authentication, storage and privacy
+
+The asynchronous client follows Blossom's Auth0 authorization-code flow with PKCE. It
+validates the callback host, path and OAuth state, and sends credentials only to the
+production Auth0 host. The password is discarded after login.
+
+Access tokens remain in memory. Refresh tokens are stored locally through Home Assistant's
+atomic storage helper under a separate random key per entry. Home Assistant storage is not
+an encrypted vault, so protect access to Home Assistant and its backups.
+
+The integration does not log credentials, tokens, raw responses or authentication URLs.
+Diagnostics redact account, membership, company, installation, card and token-store IDs.
+Deleting the config entry removes its local token store but does not revoke the Blossom login.
+
+## Known limitations
+
+- The web authentication and production endpoints are not a confirmed supported public API.
+- MFA, CAPTCHA, Google/Apple login and other interactive sign-in methods are unsupported.
+- Only the latest 20 sessions returned by Blossom are available; this is not an archive.
+- Session energy sensors are per-session values, not cumulative Energy Dashboard meters.
+- Session history is not filtered to the selected card.
+- Vehicle current and phase information may be absent.
+- The integration does not identify a vehicle or manage charging power.
+
+## Testing and development
+
+The repository validates every push and pull request with:
+
+- Ruff linting and formatting;
+- isolated client and data-model tests on Python 3.12;
+- config flow, entities, calendar, options, reauthentication, reload and removal tests against
+  Home Assistant Core 2026.9.3 on Python 3.14;
+- Home Assistant Hassfest manifest and translation validation.
+
+All automated tests use synthetic data and require no real Blossom account.
+
+```text
+api.py            Async HTTP, PKCE login and token lifecycle
+models.py         Bounded validation and privacy-conscious session mapping
+config_flow.py    Setup, explicit selections, options and reauthentication
+coordinator.py    Shared refreshes, command confirmation and repair warnings
+sensor.py         Session, account, price and diagnostic sensors
+binary_sensor.py  Automation-friendly active-session state
+button.py         Manual refresh and explicit charging controls
+calendar.py       Localized read-only session calendar
+diagnostics.py    Redacted Home Assistant diagnostics
+```
+
+## Removal
+
+1. Remove the Blossom Energy entry under **Settings → Devices & services**.
+2. Remove the integration from HACS.
+3. Restart Home Assistant.
+
+Removing the entry deletes its local token store and entities. It does not modify Blossom
+cards, sessions, charger settings or energy-management configuration.
 
 ## API reference
 
-Endpoint names were checked against [Blossom staging Swagger](https://stg.api.blossom.be/api/docs)
-and the public production web app on 2026-09-25. All runtime traffic uses production.
-The web app confirms the `start`, `end`, `kwh` and minute-based `duration` fields and
-paginated `{data, meta}` history. The implementation deliberately rejects unknown shapes.
-The included generic charging icon is original, not Blossom's company logo.
+Endpoint names were checked against the
+[Blossom staging Swagger documentation](https://stg.api.blossom.be/api/docs) and the public
+production web application on 2026-09-25. Runtime traffic uses production endpoints.
+
+The icon included in this repository is an original generic charging design and is not
+Blossom's company logo.
