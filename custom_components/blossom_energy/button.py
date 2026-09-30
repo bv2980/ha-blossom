@@ -63,7 +63,7 @@ class ChargingButton(CoordinatorEntity, ButtonEntity):
 
     async def _async_send_command(self):
         action = "start" if self.action == "start_charging" else "stop"
-        await self.coordinator.async_prepare_command(action)
+        await self.coordinator.async_prepare_command(action, self._context)
         try:
             if self.action == "start_charging":
                 await self.coordinator.client.start_home_session(

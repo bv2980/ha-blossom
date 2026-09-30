@@ -4,15 +4,18 @@ import asyncio
 import logging
 from copy import deepcopy
 from datetime import timedelta
+from uuid import uuid4
 
 from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers import issue_registry as ir
+from homeassistant.helpers.event import async_track_point_in_utc_time
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
 
 from .api import AuthError, BlossomError, PermissionError, RateLimitError
 from .command_diagnostics import safe_status
+from .command_history import HISTORY_AGE, requested_time, retained_history
 from .const import (
     CONF_CAPTURE_COMMAND_STATUS,
     CONF_CARD_ID,
@@ -38,6 +41,11 @@ class BlossomCoordinator(DataUpdateCoordinator):
         self._command_task = None
         self.command_lock = asyncio.Lock()
         self.command_trace = {}
+        self.command_history = []
+        self._history_lock = asyncio.Lock()
+        self._history_expiry_unsub = None
+        self._history_closed = False
+        self._history_storage_failed = False
         self._trace_store = Store(
             hass, 1, f"{DOMAIN}.{entry.entry_id}.command", private=True, atomic_writes=True
         )
@@ -64,14 +72,50 @@ class BlossomCoordinator(DataUpdateCoordinator):
             _LOGGER.warning("Could not restore charging command diagnostics")
             return
         if isinstance(saved, dict):
-            self.command_trace = saved
-            if saved.get("stage") in ("requesting", "confirming"):
-                self.command_trace["stage"] = "interrupted"
-                await self._async_save_trace()
+            # Migrate the previous single-attempt file in place; never resend a command.
+            self.command_history = retained_history(saved.get("history", [saved]), dt_util.utcnow())
+            for attempt in self.command_history:
+                attempt.setdefault("attempt_id", uuid4().hex)
+                if attempt.get("stage") in ("requesting", "confirming"):
+                    attempt.update(stage="interrupted", ended_at=dt_util.utcnow().isoformat())
+            self.command_trace = deepcopy(self.command_history[-1]) if self.command_history else {}
+            await self._async_save_trace()
+
+    async def async_prune_command_history(self, _now=None):
+        """Expire old records even when no new commands are issued."""
+        if not self._history_closed:
+            await self._async_save_trace()
 
     async def _async_save_trace(self):
+        async with self._history_lock:
+            if not self._history_closed:
+                await self._async_save_history_locked()
+
+    async def _async_save_history_locked(self):
+        now = dt_util.utcnow()
+        rows = self.command_history
+        if self.command_trace.get("attempt_id"):
+            rows = [
+                row for row in rows if row.get("attempt_id") != self.command_trace["attempt_id"]
+            ]
+            rows.append(self.command_trace)
+        self.command_history = retained_history(rows, now)
+        # Keep the live object: an in-flight poll may still hold a reference into it.
+        if not any(
+            row.get("attempt_id") == self.command_trace.get("attempt_id")
+            for row in self.command_history
+        ):
+            self.command_trace = {}
+        if self._history_expiry_unsub:
+            self._history_expiry_unsub()
+            self._history_expiry_unsub = None
+        if self.command_history and not self._history_closed:
+            expires = requested_time(self.command_history[0]) + HISTORY_AGE
+            self._history_expiry_unsub = async_track_point_in_utc_time(
+                self.hass, self.async_prune_command_history, expires
+            )
         try:
-            expected = deepcopy(self.command_trace)
+            expected = {"history": deepcopy(self.command_history)}
             await self._trace_store.async_save(expected)
             stored = await Store(
                 self.hass,
@@ -82,11 +126,16 @@ class BlossomCoordinator(DataUpdateCoordinator):
             ).async_load()
             if stored != expected:
                 raise OSError("command_diagnostics_storage_failed")
+            if self._history_storage_failed:
+                _LOGGER.info("Charging command history storage recovered")
+            self._history_storage_failed = False
         except Exception:
             self.command_trace["persistence_failed"] = True
-            _LOGGER.warning("Could not save charging command diagnostics")
+            if not self._history_storage_failed:
+                _LOGGER.warning("Could not save charging command diagnostics")
+            self._history_storage_failed = True
 
-    async def async_prepare_command(self, action):
+    async def async_prepare_command(self, action, context=None):
         """Record intent before network IO; card equality never exposes identifiers."""
         if self._command_task and not self._command_task.done():
             self._command_task.cancel()
@@ -94,9 +143,13 @@ class BlossomCoordinator(DataUpdateCoordinator):
                 await self._command_task
             except asyncio.CancelledError:
                 pass
+        if self.command_trace.get("stage") in ("requesting", "confirming"):
+            self.command_trace.update(stage="superseded", ended_at=dt_util.utcnow().isoformat())
+            await self._async_save_trace()
         self.client.last_command_http = {}
         self.client.last_command_status = {}
         self.command_trace = {
+            "attempt_id": uuid4().hex,
             "action": action,
             "requested_at": dt_util.utcnow().isoformat(),
             "stage": "requesting",
@@ -107,10 +160,26 @@ class BlossomCoordinator(DataUpdateCoordinator):
                 "card_source": "options" if CONF_CARD_ID in self.entry.options else "entry",
             },
             "polls": [],
+            "observed_before": {
+                "active_session": safe_status((self.data or {}).get("active_session")),
+                "device_status": safe_status((self.data or {}).get("charger_status")),
+                "last_full_refresh_at": (
+                    (self.data or {}).get("updated_at").isoformat()
+                    if (self.data or {}).get("updated_at")
+                    else None
+                ),
+            },
         }
+        if context is not None:
+            # Local HA correlation only; never store the context's user_id.
+            self.command_trace["ha_context"] = {
+                "id": context.id,
+                "parent_id": context.parent_id,
+            }
         await self._async_save_trace()
 
     async def _async_record_trace(self, stage):
+        previous_stage = self.command_trace.get("stage")
         self.command_trace["stage"] = stage
         self.command_trace["http"] = deepcopy(self.client.last_command_http)
         self.command_trace["confirmation"] = {
@@ -118,6 +187,16 @@ class BlossomCoordinator(DataUpdateCoordinator):
             for key, value in self.command.items()
         }
         _LOGGER.debug("Charging command evidence: %s", self.command_trace)
+        if stage in ("confirmed", "not_confirmed", "poll_failed", "request_failed"):
+            self.command_trace["ended_at"] = dt_util.utcnow().isoformat()
+            if previous_stage != stage:
+                log = _LOGGER.info if stage == "confirmed" else _LOGGER.warning
+                log(
+                    "Charging command %s (%s): %s",
+                    self.command_trace.get("attempt_id"),
+                    self.command_trace.get("action"),
+                    stage,
+                )
         await self._async_save_trace()
 
     @property
@@ -189,6 +268,7 @@ class BlossomCoordinator(DataUpdateCoordinator):
         requested = dt_util.parse_datetime(self.command_trace["requested_at"])
         self.command = {
             "action": action,
+            "attempt_id": self.command_trace["attempt_id"],
             "state": "pending",
             "requested_at": requested,
             "confirmed_at": None,
@@ -210,6 +290,7 @@ class BlossomCoordinator(DataUpdateCoordinator):
         """Expose a rejected command without retaining exception details."""
         self.command = {
             "action": action,
+            "attempt_id": self.command_trace["attempt_id"],
             "state": "rejected",
             "requested_at": dt_util.parse_datetime(self.command_trace["requested_at"]),
             "confirmed_at": None,
@@ -304,6 +385,10 @@ class BlossomCoordinator(DataUpdateCoordinator):
             self.async_set_updated_data(data)
 
     async def async_shutdown(self):
+        self._history_closed = True
+        if self._history_expiry_unsub:
+            self._history_expiry_unsub()
+            self._history_expiry_unsub = None
         if self._command_task and not self._command_task.done():
             self._command_task.cancel()
             try:

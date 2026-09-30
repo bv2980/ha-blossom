@@ -174,11 +174,28 @@ safe response results, card-selection equality checks, and each confirmation pol
 A successful HTTP response is not proof that the charger started; the response may
 contain an application-level rejection, and confirmation only checks session existence.
 
-Only the latest attempt is saved locally across restarts. An unfinished attempt is
-marked `interrupted`; it is never resent. The live command sensor resets to `idle`,
-while the historical attempt remains available in diagnostics. Removing the integration
-also deletes this saved attempt. A `persistence_failed` flag means it may not survive
-a restart.
+Since 0.5.5, up to 20 attempts from the last seven days are saved locally across restarts.
+Download diagnostics after a failure: `command_history` contains newest-first attempts,
+while `last_command_attempt` still contains the latest one. Each attempt includes its
+own `attempt_id`, request/response details, polls, outcome, and the last observed state
+before the command. Where available, opaque local Home Assistant context and parent-context
+references help correlate the attempt with an automation trace; no user ID is retained.
+The attempt reference is also included in the command sensor attributes and outcome logs.
+
+An unfinished attempt is marked `interrupted` after restart, or `superseded` if a new
+command replaces its confirmation process; it is never resent. The live command sensor
+resets to `idle`, while history remains available. The last record from older versions is
+migrated automatically if still within retention. Expiry runs on a timer while loaded
+and at startup after downtime. Removing the integration also deletes its history.
+`command_history_storage_failed` means in-memory evidence may not survive a restart.
+
+Unconfirmed/failed commands produce one warning per attempt. Successful outcomes are
+logged at info level; detailed sanitized traces remain at debug level. Storage failure
+warnings are deduplicated until recovery. Routine identical polls do not generate warnings.
+The existing Home Assistant coordinator handles connection loss/recovery logging.
+This history needs neither permanent debug logging nor an external logging server.
+It does not collect cable events, solar power or the automation's decision logic; use
+the automation trace and existing charger/energy sensor history for those observations.
 
 `active_session_details` includes safe charger/session states, session timestamps,
 energy, current and phases. `actual_refresh_interval_seconds` and `last_full_refresh_at`

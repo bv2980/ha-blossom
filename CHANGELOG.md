@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.5.5
+
+- Retain up to 20 sanitized Start/Stop attempts for seven days across restarts.
+- Export newest-first command history in diagnostics while preserving `last_command_attempt`.
+- Give each attempt an independent reference, include local Home Assistant context references
+  (never the user ID), and capture the last observed state before sending the command.
+- Migrate the previous single attempt, mark interrupted/superseded attempts, and expire old
+  records on a timer while loaded or on the next startup. Removing the integration removes history.
+- Log unsuccessful command outcomes once per attempt; keep successful summaries at info level
+  and full sanitized evidence at debug level. Deduplicate storage failure warnings.
+- Exact opt-in status text remains memory-only and is never added to history or logs.
+
 ## 0.5.4
 
 - Add an opt-in diagnostic option for the exact top-level Start response status.

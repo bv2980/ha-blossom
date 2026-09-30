@@ -57,7 +57,7 @@ async def test_full_setup_entities_reload_and_delete(hass, mock_api):
         (DOMAIN, "installation"), entry.entry_id
     )
     assert device is not None
-    assert device.sw_version == "0.5.4"
+    assert device.sw_version == "0.5.5"
     diagnostics = await async_get_config_entry_diagnostics(hass, entry)
     assert diagnostics["config_entry"]["card_label"] == "**REDACTED**"
     assert diagnostics["active_session_schema"] == {
@@ -427,3 +427,103 @@ async def test_exact_status_option_diagnostics_privacy_and_reload(hass, mock_api
     assert not entry.runtime_data.client.capture_command_status
     diagnostics = await async_get_config_entry_diagnostics(hass, entry)
     assert diagnostics["exact_command_status"]["capture"] == {}
+
+
+async def test_command_history_preserves_outcomes_and_correlates_context(
+    hass, mock_api, hass_admin_user
+):
+    from homeassistant.core import Context
+
+    entry = await configure(hass)
+    coordinator = entry.runtime_data
+    registry = er.async_get(hass)
+    start_id = registry.async_get_entity_id("button", DOMAIN, f"{entry.unique_id}_start_charging")
+    context = Context(user_id=hass_admin_user.id, parent_id="local-parent")
+    await hass.services.async_call(
+        "button", "press", {"entity_id": start_id}, blocking=True, context=context
+    )
+    first_id = coordinator.command_trace["attempt_id"]
+    assert coordinator.command_trace["ha_context"] == {
+        "id": context.id,
+        "parent_id": "local-parent",
+    }
+    assert coordinator.command["attempt_id"] == first_id
+    await coordinator.async_prepare_command("stop")
+    await coordinator.async_record_command_failure("stop")
+    second_id = coordinator.command_trace["attempt_id"]
+    assert first_id != second_id
+    diagnostics = await async_get_config_entry_diagnostics(hass, entry)
+    history = diagnostics["command_history"]
+    assert [(row["action"], row["stage"]) for row in history] == [
+        ("stop", "request_failed"),
+        ("start", "superseded"),
+    ]
+    assert hass_admin_user.id not in str(diagnostics)
+    assert await hass.config_entries.async_reload(entry.entry_id)
+    assert [row["attempt_id"] for row in entry.runtime_data.command_history] == [
+        first_id,
+        second_id,
+    ]
+    mock_api["start"].assert_awaited_once()
+
+
+async def test_history_cap_and_poll_updates_do_not_duplicate_attempts(hass, mock_api):
+    entry = await configure(hass)
+    coordinator = entry.runtime_data
+    for _ in range(23):
+        await coordinator.async_prepare_command("start")
+        await coordinator.async_record_command_failure("start")
+    await coordinator._async_record_trace("request_failed")
+    assert len(coordinator.command_history) == 20
+    assert len({row["attempt_id"] for row in coordinator.command_history}) == 20
+    saved = await Store(hass, 1, f"{DOMAIN}.{entry.entry_id}.command").async_load()
+    assert len(saved["history"]) == 20
+
+
+async def test_history_migrates_old_attempt_and_expires_without_new_command(
+    hass, mock_api, freezer
+):
+    from pytest_homeassistant_custom_component.common import async_fire_time_changed
+
+    entry = await configure(hass)
+    now = datetime.now(UTC)
+    freezer.move_to(now)
+    key = f"{DOMAIN}.{entry.entry_id}.command"
+    legacy = {
+        "action": "start",
+        "stage": "confirming",
+        "requested_at": (now - timedelta(days=7) + timedelta(seconds=3)).isoformat(),
+        "polls": [{"attempt": 1, "active_session_count": 0}],
+    }
+    await Store(hass, 1, key).async_save(legacy)
+    assert await hass.config_entries.async_reload(entry.entry_id)
+    coordinator = entry.runtime_data
+    assert len(coordinator.command_history) == 1
+    assert coordinator.command_history[0]["stage"] == "interrupted"
+    assert coordinator.command_history[0]["attempt_id"]
+    freezer.move_to(now + timedelta(seconds=4))
+    async_fire_time_changed(hass, datetime.now(UTC))
+    await hass.async_block_till_done()
+    assert coordinator.command_history == []
+    assert coordinator.command_trace == {}
+    assert (await Store(hass, 1, key).async_load()) == {"history": []}
+    mock_api["start"].assert_not_called()
+
+
+async def test_history_survives_storage_failure_without_log_flood(hass, mock_api, caplog):
+    entry = await configure(hass)
+    coordinator = entry.runtime_data
+    with patch("homeassistant.helpers.storage.Store.async_save", new_callable=AsyncMock):
+        await coordinator.async_prepare_command("start")
+        await coordinator.async_record_command_failure("start")
+        await coordinator._async_record_trace("request_failed")
+    assert caplog.text.count("Could not save charging command diagnostics") == 1
+    assert (
+        caplog.text.count(
+            f"Charging command {coordinator.command_trace['attempt_id']} (start): request_failed"
+        )
+        == 1
+    )
+    assert len(coordinator.command_history) == 1
+    await coordinator.async_prune_command_history()
+    assert not coordinator._history_storage_failed

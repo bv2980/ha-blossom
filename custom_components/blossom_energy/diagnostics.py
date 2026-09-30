@@ -1,5 +1,7 @@
 """Privacy-safe diagnostics for Blossom Energy."""
 
+from copy import deepcopy
+
 from homeassistant.components.diagnostics import async_redact_data
 
 from .command_diagnostics import safe_status
@@ -18,6 +20,7 @@ REDACT = {
 
 async def async_get_config_entry_diagnostics(hass, entry):
     coordinator = entry.runtime_data
+    await coordinator.async_prune_command_history()
     data = coordinator.data or {}
     return {
         "config_entry": async_redact_data(dict(entry.data), REDACT),
@@ -30,7 +33,10 @@ async def async_get_config_entry_diagnostics(hass, entry):
         "session_locations_enabled": coordinator.show_session_locations,
         "active_session_schema": data.get("active_session_schema", {}),
         "command_confirmation": data.get("command", {}),
-        "last_command_attempt": coordinator.command_trace,
+        "last_command_attempt": deepcopy(coordinator.command_trace),
+        "command_history": list(reversed(deepcopy(coordinator.command_history))),
+        "command_history_retention": {"max_attempts": 20, "max_age_days": 7},
+        "command_history_storage_failed": coordinator._history_storage_failed,
         "exact_command_status": {
             "enabled": entry.options.get(CONF_CAPTURE_COMMAND_STATUS, False),
             "capture": dict(coordinator.client.last_command_status)
