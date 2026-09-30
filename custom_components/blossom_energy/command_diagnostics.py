@@ -3,6 +3,9 @@
 import json
 
 MAX_BODY_BYTES = 16384
+MAX_RESULT_FIELDS = 50
+MAX_ARRAY_ITEMS = 3
+RESULT_KEYS = ("success", "accepted", "status", "code", "error", "result", "data")
 SAFE_VALUES = {
     "accepted",
     "rejected",
@@ -39,6 +42,14 @@ SAFE_VALUES = {
     "offline",
     "online",
     "timeout",
+    "notsupported",
+    "notauthorized",
+    "not_authorized",
+    "invalidtoken",
+    "invalid_token",
+    "occupied",
+    "inoperative",
+    "evdisconnected",
 }
 
 
@@ -61,26 +72,59 @@ def response_summary(body):
         payload = json.loads(body)
     except (ValueError, UnicodeError, RecursionError):
         return {"body": "non_json"}
-    result = {"body": "json", "results": {}}
+    result = {"body": "json", "results": {}, "value_details": {}}
 
-    def visit(value, prefix="", depth=0):
-        if not isinstance(value, dict):
-            if prefix:
-                result["results"][prefix] = safe_status(value)
+    def visit(value, prefix="response", depth=0, key="status"):
+        # Paths contain only our fixed keys and bounded array indices, never API keys.
+        if len(result["value_details"]) >= MAX_RESULT_FIELDS:
+            result["truncated"] = True
             return
-        for key in ("success", "accepted", "status", "code", "error", "result", "data"):
-            if key not in value:
-                continue
-            item = value[key]
-            name = f"{prefix}.{key}" if prefix else key
-            if isinstance(item, dict) and depth < 2:
-                visit(item, name, depth + 1)
-            elif type(item) is bool:
-                result["results"][name] = item
-            elif key == "code" and type(item) is int and 100 <= item <= 599:
-                result["results"][name] = item
+        detail = {
+            "type": "null"
+            if value is None
+            else {
+                dict: "object",
+                list: "array",
+                str: "string",
+                bool: "boolean",
+                int: "integer",
+                float: "number",
+            }.get(type(value), "unknown")
+        }
+        result["value_details"][prefix] = detail
+        if isinstance(value, (dict, list)):
+            detail["count"] = len(value)
+            if depth >= 4:
+                detail["truncated"] = True
+                return
+            if isinstance(value, dict):
+                detail["omitted_field_count"] = sum(name not in RESULT_KEYS for name in value)
+                for name in RESULT_KEYS:
+                    if name in value:
+                        path = name if prefix == "response" else f"{prefix}.{name}"
+                        visit(value[name], path, depth + 1, name)
             else:
-                result["results"][name] = safe_status(item)
+                detail["truncated"] = len(value) > MAX_ARRAY_ITEMS
+                for index, item in enumerate(value[:MAX_ARRAY_ITEMS]):
+                    visit(item, f"{prefix}[{index}]", depth + 1, key)
+            return
+        if type(value) is bool or value is None:
+            result["results"][prefix] = value
+            return
+        # Restrict numbers to small status/code values; IDs and arbitrary numbers stay private.
+        numeric = value
+        if isinstance(value, str):
+            detail["length"] = len(value)
+            if (
+                len(value) <= 4
+                and value.removeprefix("-").isascii()
+                and value.removeprefix("-").isdigit()
+            ):
+                numeric = int(value)
+        if key in ("status", "code") and type(numeric) is int and -1 <= numeric <= 599:
+            result["results"][prefix] = numeric
+        else:
+            result["results"][prefix] = safe_status(value)
 
     visit(payload)
     return result

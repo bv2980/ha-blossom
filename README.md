@@ -189,6 +189,11 @@ integration menu before reproducing the issue, then disable it to download the l
 The same sanitized command evidence is logged at debug level. Tokens, raw identifiers,
 free-text messages and raw response bodies are excluded; unknown result strings appear
 as `unrecognized`. Card IDs are compared using booleans, without publishing the IDs.
+Since 0.5.3, `response.value_details` distinguishes strings, numbers, objects and arrays.
+Small integer status/code values (-1 through 599) and their numeric-string equivalents
+are retained as numbers; the original type remains in `value_details`. These codes are
+not interpreted as acceptance or rejection. Bounded nested results are inspected using
+only known keys. Unknown strings reveal only their type and length, never their content.
 Response inspection is capped at 16 KiB. No logging configuration change is needed
 to obtain the evidence in a diagnostics download.
 

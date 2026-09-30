@@ -118,3 +118,73 @@ def test_response_privacy_and_bounds():
     assert "SECRET" not in json.dumps(result)
     assert response_summary(b"SECRET") == {"body": "non_json"}
     assert response_summary(b"x" * 16385) == {"body": "too_large"}
+
+
+@pytest.mark.parametrize("value", [0, 1, -1, 201, 403, "0", "201"])
+def test_small_numeric_status_is_visible_without_guessing_its_meaning(value):
+    result = response_summary(json.dumps({"status": value}).encode())
+    assert result["results"]["status"] == int(value)
+    assert result["value_details"]["status"]["type"] == (
+        "string" if isinstance(value, str) else "integer"
+    )
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        987654321,
+        "987654321",
+        "--1",
+        "１２",
+        1.5,
+        "user@example.invalid",
+        "Bearer SECRET",
+        "NEW_UNKNOWN_ENUM",
+    ],
+)
+def test_unknown_status_keeps_only_type_and_shape(value):
+    result = response_summary(json.dumps({"status": value}).encode())
+    assert result["results"]["status"] == "unrecognized"
+    assert str(value) not in json.dumps(result)
+
+
+def test_structured_status_preserves_known_fields_but_not_personal_keys():
+    result = response_summary(
+        json.dumps(
+            {
+                "status": {
+                    "code": 403,
+                    "result": [{"status": "NotAuthorized", "message": "SECRET"}],
+                    "customer@example.invalid": "SECRET",
+                    "token": "SECRET",
+                }
+            }
+        ).encode()
+    )
+    assert result["results"] == {"status.code": 403, "status.result[0].status": "notauthorized"}
+    assert result["value_details"]["status"]["type"] == "object"
+    assert result["value_details"]["status"]["omitted_field_count"] == 2
+    assert "SECRET" not in json.dumps(result)
+    assert "customer@" not in json.dumps(result)
+
+
+def test_result_traversal_is_bounded_and_handles_root_scalars():
+    result = response_summary(json.dumps({"status": ["Accepted"] * 100}).encode())
+    assert len(result["results"]) == 3
+    assert result["value_details"]["status"]["truncated"] is True
+    value = {"status": 1}
+    for _ in range(6):
+        value = {"data": value}
+    result = response_summary(json.dumps(value).encode())
+    assert result["value_details"]["data.data.data.data"]["truncated"] is True
+    assert response_summary(b'"Rejected"')["results"] == {"response": "rejected"}
+    assert response_summary(b"false")["results"] == {"response": False}
+
+
+async def test_actual_201_numeric_status_is_recorded_without_resending():
+    instance = client([Response(201, {"status": 1})])
+    await instance.start_home_session(SCOPE, "private-card")
+    response = instance.last_command_http["attempts"][0]["response"]
+    assert response["results"] == {"status": 1}
+    assert response["value_details"]["status"]["type"] == "integer"
+    assert len(instance.session.calls) == 1

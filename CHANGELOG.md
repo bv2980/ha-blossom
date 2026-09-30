@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.5.3
+
+- Preserve small numeric command status/code values (-1 through 599), including numeric
+  strings, without interpreting undocumented codes as success or failure.
+- Include safe response value types and container shapes to explain `unrecognized` results.
+- Inspect bounded nested objects and arrays using only allowlisted keys and result values.
+- Keep unknown text, large numbers, identifiers and arbitrary field names private.
+- Leave command execution and confirmation behavior unchanged; no automatic retries added.
+
 ## 0.5.2
 
 - Send the card selected in options when starting a home charging session.

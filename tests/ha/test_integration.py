@@ -57,7 +57,7 @@ async def test_full_setup_entities_reload_and_delete(hass, mock_api):
         (DOMAIN, "installation"), entry.entry_id
     )
     assert device is not None
-    assert device.sw_version == "0.5.2"
+    assert device.sw_version == "0.5.3"
     diagnostics = await async_get_config_entry_diagnostics(hass, entry)
     assert diagnostics["config_entry"]["card_label"] == "**REDACTED**"
     assert diagnostics["active_session_schema"] == {
