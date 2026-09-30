@@ -1,9 +1,10 @@
 """Constants for the Blossom Energy integration."""
 
 DOMAIN = "blossom_energy"
-INTEGRATION_VERSION = "0.5.3"
+INTEGRATION_VERSION = "0.5.4"
 
 CONF_CARD_ID = "card_id"
+CONF_CAPTURE_COMMAND_STATUS = "capture_command_status"
 CONF_REFRESH_INTERVAL = "refresh_interval"
 CONF_SHOW_SESSION_LOCATIONS = "show_session_locations"
 DEFAULT_REFRESH_INTERVAL = 15

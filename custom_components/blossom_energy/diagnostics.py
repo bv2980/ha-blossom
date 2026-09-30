@@ -3,6 +3,7 @@
 from homeassistant.components.diagnostics import async_redact_data
 
 from .command_diagnostics import safe_status
+from .const import CONF_CAPTURE_COMMAND_STATUS
 
 REDACT = {
     "account_id",
@@ -30,6 +31,13 @@ async def async_get_config_entry_diagnostics(hass, entry):
         "active_session_schema": data.get("active_session_schema", {}),
         "command_confirmation": data.get("command", {}),
         "last_command_attempt": coordinator.command_trace,
+        "exact_command_status": {
+            "enabled": entry.options.get(CONF_CAPTURE_COMMAND_STATUS, False),
+            "capture": dict(coordinator.client.last_command_status)
+            if entry.options.get(CONF_CAPTURE_COMMAND_STATUS, False)
+            else {},
+            "retention": "memory_only_until_next_command_or_reload",
+        },
         "actual_refresh_interval_seconds": coordinator.update_interval.total_seconds(),
         "last_full_refresh_at": data.get("updated_at"),
         "active_session_details": {

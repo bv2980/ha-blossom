@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.5.4
+
+- Add an opt-in diagnostic option for the exact top-level Start response status.
+- Keep this text only in memory, separate from logs and saved command history; clear
+  it on the next command or reload. Inspect at most 128 characters and withhold obvious
+  credentials, addresses and known request identifiers.
+- Explain the privacy implications in English and Dutch options and document the test flow.
+- Record read-only findings from the official web app: it ignores the Start response body,
+  so no undocumented status meaning or command behavior is inferred from HTTP success.
+
 ## 0.5.3
 
 - Preserve small numeric command status/code values (-1 through 599), including numeric

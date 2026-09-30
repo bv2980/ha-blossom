@@ -197,7 +197,28 @@ only known keys. Unknown strings reveal only their type and length, never their 
 Response inspection is capped at 16 KiB. No logging configuration change is needed
 to obtain the evidence in a diagnostics download.
 
-### Polling behavior
+### Temporarily inspect an unknown Start status (0.5.4)
+
+If `last_command_attempt.http` contains `status: unrecognized`, open **Configure** for
+Blossom Energy and enable **Include exact start status in diagnostics (temporary)**.
+Only do this when investigating a failed Start: the upstream status is arbitrary text
+and may contain sensitive information. The option is off by default.
+
+With no active session, press Start once, wait 2–3 minutes, then download diagnostics
+**before** stopping, restarting, reloading, or disabling the option. Look for
+`exact_command_status.capture`. Only the top-level `status` string from Start is captured,
+up to 128 characters; obvious secrets, addresses and known request identifiers are withheld.
+No complete response body is exported. Review this field before sharing the file.
+
+The capture is memory-only: it never goes into debug logs or saved command history.
+The next command or reload clears it. Disable the option after downloading the file.
+A restart leaves the option enabled but removes previously captured text; old sanitized
+responses cannot be reconstructed. This does not alter Start, Stop or confirmation behavior.
+
+See [the public-webapp investigation](docs/remote-start-investigation.md) for why a successful
+HTTP response is insufficient to prove that charging started.
+
+### Polling intervals
 
 | Situation | Behaviour |
 |---|---|

@@ -233,6 +233,8 @@ class BlossomClient:
         self._token_lock = asyncio.Lock()
         self._retry_at = 0.0
         self.last_command_http = {}
+        self.capture_command_status = False
+        self.last_command_status = {}
 
     def _check_backoff(self):
         remaining = self._retry_at - time.monotonic()
@@ -310,10 +312,15 @@ class BlossomClient:
                 raise ConnectionError("api_connection_failed") from None
         raise AuthError("authentication_failed")
 
+    def _capture_status(self, value):
+        """Keep opt-in status text separate from persistable/loggable HTTP evidence."""
+        self.last_command_status = value
+
     async def post(self, path, scope, data=None):
         """Keep bounded HTTP evidence independently of command confirmation."""
         started = time.monotonic()
         self.last_command_http = {"attempts": [], "outcome": "pending"}
+        self.last_command_status = {}
         try:
             result = await self._post(path, scope, data)
             self.last_command_http["outcome"] = "http_success"
@@ -351,9 +358,22 @@ class BlossomClient:
                     **request_data,
                 ) as response:
                     evidence = {"http_status": response.status}
+                    self.last_command_status = {}
                     self.last_command_http["attempts"].append(evidence)
                     try:
-                        evidence["response"] = await read_response_summary(response)
+                        capture = None
+                        if self.capture_command_status and path.endswith("/start"):
+                            capture = self._capture_status
+                        evidence["response"] = await read_response_summary(
+                            response,
+                            status_capture=capture,
+                            protected_values=(
+                                self.tokens.access_token,
+                                self.tokens.refresh_token,
+                                *scope.values(),
+                                (data or {}).get("cardId"),
+                            ),
+                        )
                     except (aiohttp.ClientError, TimeoutError):
                         # A received success status must not trigger a command replay.
                         evidence["response"] = {"body": "read_failed"}

@@ -1,6 +1,7 @@
 """Strictly allowlisted command evidence; never retain raw response bodies or IDs."""
 
 import json
+import re
 
 MAX_BODY_BYTES = 16384
 MAX_RESULT_FIELDS = 50
@@ -130,7 +131,32 @@ def response_summary(body):
     return result
 
 
-async def read_response_summary(response):
+def exact_status_evidence(body, protected_values=()):
+    """Opt-in, memory-only top-level status; never return the rest of the payload."""
+    if len(body) > MAX_BODY_BYTES:
+        return {"state": "body_too_large"}
+    try:
+        payload = json.loads(body)
+    except (ValueError, UnicodeError, RecursionError):
+        return {"state": "not_json"}
+    if not isinstance(payload, dict) or "status" not in payload:
+        return {"state": "status_missing"}
+    value = payload["status"]
+    if not isinstance(value, str):
+        return {"state": "not_text"}
+    if not 1 <= len(value) <= 128:
+        return {"state": "text_outside_limit"}
+    # Do not export obvious credentials, addresses or known request identifiers.
+    if (
+        any(secret and str(secret).casefold() in value.casefold() for secret in protected_values)
+        or re.search(r"[@:/\\\x00-\x1f\x7f]|bearer|password|token|secret", value, re.I)
+        or re.search(r"[A-Za-z0-9_-]{16,}\.[A-Za-z0-9_-]+|[0-9a-f]{8}-[0-9a-f-]{27,}", value, re.I)
+    ):
+        return {"state": "sensitive_text_withheld"}
+    return {"state": "captured", "value": value}
+
+
+async def read_response_summary(response, *, status_capture=None, protected_values=()):
     """Bound memory use without exposing headers, URLs, or arbitrary response text."""
     body = bytearray()
     while len(body) <= MAX_BODY_BYTES:
@@ -138,4 +164,6 @@ async def read_response_summary(response):
         if not chunk:
             break
         body.extend(chunk)
+    if status_capture is not None:
+        status_capture(exact_status_evidence(bytes(body), protected_values))
     return response_summary(bytes(body))

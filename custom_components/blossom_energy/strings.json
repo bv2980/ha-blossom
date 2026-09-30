@@ -56,7 +56,11 @@
         "data": {
           "card_id": "Charging card",
           "refresh_interval": "Idle refresh interval",
-          "show_session_locations": "Show session locations"
+          "show_session_locations": "Show session locations",
+          "capture_command_status": "Include exact start status in diagnostics (temporary)"
+        },
+        "data_description": {
+          "capture_command_status": "For troubleshooting only: includes up to 128 characters of the status field in downloaded diagnostics. Text may contain sensitive information. Never written to logs or disk; cleared by the next command or reload. Download diagnostics before disabling this option."
         }
       }
     }

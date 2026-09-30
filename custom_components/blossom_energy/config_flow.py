@@ -19,6 +19,7 @@ from .api import (
     login,
 )
 from .const import (
+    CONF_CAPTURE_COMMAND_STATUS,
     CONF_CARD_ID,
     CONF_REFRESH_INTERVAL,
     CONF_SHOW_SESSION_LOCATIONS,
@@ -261,6 +262,10 @@ class BlossomOptionsFlow(config_entries.OptionsFlow):
                     vol.Required(
                         CONF_SHOW_SESSION_LOCATIONS,
                         default=self.config_entry.options.get(CONF_SHOW_SESSION_LOCATIONS, False),
+                    ): bool,
+                    vol.Optional(
+                        CONF_CAPTURE_COMMAND_STATUS,
+                        default=self.config_entry.options.get(CONF_CAPTURE_COMMAND_STATUS, False),
                     ): bool,
                 }
             ),

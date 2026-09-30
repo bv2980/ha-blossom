@@ -14,6 +14,7 @@ from homeassistant.util import dt as dt_util
 from .api import AuthError, BlossomError, PermissionError, RateLimitError
 from .command_diagnostics import safe_status
 from .const import (
+    CONF_CAPTURE_COMMAND_STATUS,
     CONF_CARD_ID,
     CONF_REFRESH_INTERVAL,
     CONF_SHOW_SESSION_LOCATIONS,
@@ -29,6 +30,7 @@ class BlossomCoordinator(DataUpdateCoordinator):
     def __init__(self, hass, entry, client):
         super().__init__(hass, _LOGGER, name=DOMAIN, config_entry=entry)
         self.client = client
+        self.client.capture_command_status = entry.options.get(CONF_CAPTURE_COMMAND_STATUS, False)
         self.entry = entry
         self.scope = {
             key: entry.data[key] for key in ("member_id", "company_id", "installation_id")
@@ -93,6 +95,7 @@ class BlossomCoordinator(DataUpdateCoordinator):
             except asyncio.CancelledError:
                 pass
         self.client.last_command_http = {}
+        self.client.last_command_status = {}
         self.command_trace = {
             "action": action,
             "requested_at": dt_util.utcnow().isoformat(),
@@ -307,6 +310,7 @@ class BlossomCoordinator(DataUpdateCoordinator):
                 await self._command_task
             except asyncio.CancelledError:
                 pass
+        self.client.last_command_status = {}
         await super().async_shutdown()
 
 

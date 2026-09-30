@@ -5,7 +5,7 @@ import time
 
 import pytest
 from blossom_test_client import api
-from blossom_test_client.command_diagnostics import response_summary
+from blossom_test_client.command_diagnostics import exact_status_evidence, response_summary
 from test_api import Response, Session
 
 SCOPE = {
@@ -188,3 +188,56 @@ async def test_actual_201_numeric_status_is_recorded_without_resending():
     assert response["results"] == {"status": 1}
     assert response["value_details"]["status"]["type"] == "integer"
     assert len(instance.session.calls) == 1
+
+
+async def test_exact_start_status_is_opt_in_ephemeral_and_separate(caplog):
+    value = "SYNTHETIC_STATE"
+    instance = client(
+        [
+            Response(201, {"status": value, "customer": "PRIVATE"}),
+            Response(201, {"status": value}),
+            Response(201, {"status": value}),
+        ]
+    )
+    await instance.start_home_session(SCOPE, "private-card")
+    assert instance.last_command_status == {}
+    instance.capture_command_status = True
+    await instance.start_home_session(SCOPE, "private-card")
+    assert instance.last_command_status == {"state": "captured", "value": value}
+    assert value not in json.dumps(instance.last_command_http)
+    assert "PRIVATE" not in json.dumps(instance.last_command_status)
+    assert value not in caplog.text
+    await instance.stop_home_session(SCOPE)
+    assert instance.last_command_status == {}
+    assert len(instance.session.calls) == 3
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "Bearer ABC",
+        "user@example.invalid",
+        "https://private",
+        "abc\nDEF",
+        "password=abc",
+        "CUSTOMSECRET",
+        "x" * 129,
+    ],
+)
+def test_exact_status_blocks_sensitive_text_and_never_truncates(value):
+    result = exact_status_evidence(json.dumps({"status": value}).encode(), ["CUSTOMSECRET"])
+    assert result["state"] in ("sensitive_text_withheld", "text_outside_limit")
+    assert "value" not in result
+
+
+@pytest.mark.parametrize(
+    "body,state",
+    [
+        (b"{}", "status_missing"),
+        (b'{"status": {}}', "not_text"),
+        (b"", "not_json"),
+        (b"x" * 16385, "body_too_large"),
+    ],
+)
+def test_exact_status_handles_missing_or_unsupported_values(body, state):
+    assert exact_status_evidence(body) == {"state": state}

@@ -57,7 +57,7 @@ async def test_full_setup_entities_reload_and_delete(hass, mock_api):
         (DOMAIN, "installation"), entry.entry_id
     )
     assert device is not None
-    assert device.sw_version == "0.5.3"
+    assert device.sw_version == "0.5.4"
     diagnostics = await async_get_config_entry_diagnostics(hass, entry)
     assert diagnostics["config_entry"]["card_label"] == "**REDACTED**"
     assert diagnostics["active_session_schema"] == {
@@ -390,3 +390,40 @@ async def test_diagnostic_storage_failure_does_not_block_start(hass, mock_api):
         await hass.services.async_call("button", "press", {"entity_id": start_id}, blocking=True)
     assert entry.runtime_data.command_trace["persistence_failed"] is True
     mock_api["start"].assert_awaited_once()
+
+
+async def test_exact_status_option_diagnostics_privacy_and_reload(hass, mock_api, caplog):
+    entry = await configure(hass)
+    assert not entry.runtime_data.client.capture_command_status
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        {
+            "card_id": "card",
+            "refresh_interval": 15,
+            "show_session_locations": False,
+            "capture_command_status": True,
+        },
+    )
+    await hass.async_block_till_done()
+    coordinator = entry.runtime_data
+    assert coordinator.client.capture_command_status
+    await coordinator.async_prepare_command("start")
+    coordinator.client.last_command_status = {"state": "captured", "value": "SYNTHETIC_STATE"}
+    await coordinator._async_record_trace("request_failed")
+    diagnostics = await async_get_config_entry_diagnostics(hass, entry)
+    assert diagnostics["exact_command_status"]["capture"]["value"] == "SYNTHETIC_STATE"
+    assert "SYNTHETIC_STATE" not in str(diagnostics["last_command_attempt"])
+    saved = await Store(hass, 1, f"{DOMAIN}.{entry.entry_id}.command").async_load()
+    assert "SYNTHETIC_STATE" not in str(saved)
+    assert "SYNTHETIC_STATE" not in caplog.text
+    assert await hass.config_entries.async_reload(entry.entry_id)
+    assert entry.runtime_data.client.last_command_status == {}
+    assert coordinator.client.last_command_status == {}
+    hass.config_entries.async_update_entry(
+        entry, options={**entry.options, "capture_command_status": False}
+    )
+    await hass.async_block_till_done()
+    assert not entry.runtime_data.client.capture_command_status
+    diagnostics = await async_get_config_entry_diagnostics(hass, entry)
+    assert diagnostics["exact_command_status"]["capture"] == {}

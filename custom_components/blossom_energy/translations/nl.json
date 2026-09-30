@@ -56,7 +56,11 @@
         "data": {
           "card_id": "Laadpas",
           "refresh_interval": "Verversingsinterval in rust",
-          "show_session_locations": "Sessielocaties tonen"
+          "show_session_locations": "Sessielocaties tonen",
+          "capture_command_status": "Exacte startstatus opnemen in diagnostiek (tijdelijk)"
+        },
+        "data_description": {
+          "capture_command_status": "Alleen voor onderzoek: neemt maximaal 128 tekens van het statusveld op in een diagnostiekdownload. De tekst kan gevoelige informatie bevatten. Niet opgeslagen in logs of op schijf; verdwijnt bij het volgende commando of herladen. Download de diagnostiek voordat je dit weer uitschakelt."
         }
       }
     }
