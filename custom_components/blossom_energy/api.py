@@ -17,6 +17,8 @@ from urllib.parse import parse_qs, urlencode, urljoin, urlsplit
 
 import aiohttp
 
+from .command_diagnostics import read_response_summary
+
 AUTH_ORIGIN = "https://blossom-production.eu.auth0.com"
 APP_ORIGIN = "https://app.blossom.be"
 API_ORIGIN = "https://api.blossom.be/api"
@@ -230,6 +232,7 @@ class BlossomClient:
         self.session, self.tokens, self.persist = session, tokens, persist
         self._token_lock = asyncio.Lock()
         self._retry_at = 0.0
+        self.last_command_http = {}
 
     def _check_backoff(self):
         remaining = self._retry_at - time.monotonic()
@@ -308,6 +311,20 @@ class BlossomClient:
         raise AuthError("authentication_failed")
 
     async def post(self, path, scope, data=None):
+        """Keep bounded HTTP evidence independently of command confirmation."""
+        started = time.monotonic()
+        self.last_command_http = {"attempts": [], "outcome": "pending"}
+        try:
+            result = await self._post(path, scope, data)
+            self.last_command_http["outcome"] = "http_success"
+            return result
+        except BlossomError as err:
+            self.last_command_http["outcome"] = type(err).__name__
+            raise
+        finally:
+            self.last_command_http["duration_ms"] = round((time.monotonic() - started) * 1000)
+
+    async def _post(self, path, scope, data=None):
         """Send one explicitly allowlisted home-charging command."""
         if path not in {"/optimile/home-session/start", "/optimile/home-session/stop"}:
             raise ValueError("Only explicitly allowed command endpoints are supported")
@@ -333,6 +350,13 @@ class BlossomClient:
                     allow_redirects=False,
                     **request_data,
                 ) as response:
+                    evidence = {"http_status": response.status}
+                    self.last_command_http["attempts"].append(evidence)
+                    try:
+                        evidence["response"] = await read_response_summary(response)
+                    except (aiohttp.ClientError, TimeoutError):
+                        # A received success status must not trigger a command replay.
+                        evidence["response"] = {"body": "read_failed"}
                     if response.status == 401 and attempt == 0:
                         await self.ensure_token(rejected_token=access)
                         continue

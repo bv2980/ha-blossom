@@ -34,6 +34,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     client = BlossomClient(async_get_clientsession(hass), Tokens(saved["refresh_token"]), persist)
     coordinator = BlossomCoordinator(hass, entry, client)
+    await coordinator.async_load_command_trace()
     await coordinator.async_config_entry_first_refresh()
     live_card_label = coordinator.data.get("selected_card_label")
     if live_card_label and live_card_label != entry.data.get("card_label"):
@@ -57,3 +58,4 @@ async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
     ir.async_delete_issue(hass, DOMAIN, f"active_session_stale_{entry.entry_id}")
     if key := entry.data.get("token_store"):
         await token_store(hass, key).async_remove()
+    await token_store(hass, f"{DOMAIN}.{entry.entry_id}.command").async_remove()

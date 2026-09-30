@@ -1,6 +1,8 @@
 """Actual HA config-flow, entity, reload and removal tests with mocked cloud IO."""
 
+import asyncio
 from datetime import UTC, datetime, timedelta
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -55,7 +57,7 @@ async def test_full_setup_entities_reload_and_delete(hass, mock_api):
         (DOMAIN, "installation"), entry.entry_id
     )
     assert device is not None
-    assert device.sw_version == "0.5.1"
+    assert device.sw_version == "0.5.2"
     diagnostics = await async_get_config_entry_diagnostics(hass, entry)
     assert diagnostics["config_entry"]["card_label"] == "**REDACTED**"
     assert diagnostics["active_session_schema"] == {
@@ -303,3 +305,88 @@ async def test_silent_storage_failure_is_detected(hass):
     with patch("homeassistant.helpers.storage.Store.async_save", new_callable=AsyncMock):
         with pytest.raises(OSError, match="token_storage_failed"):
             await save_refresh_token(hass, "blossom_energy.synthetic", "synthetic-refresh")
+
+
+async def test_start_uses_options_card_and_preserves_trace_after_reload(hass, mock_api):
+    entry = await configure(hass)
+    mock_api["cards"].return_value = [{"id": "replacement-card", "label": "Replacement"}]
+    hass.config_entries.async_update_entry(entry, options={"card_id": "replacement-card"})
+    await hass.async_block_till_done()
+    registry = er.async_get(hass)
+    start_id = registry.async_get_entity_id("button", DOMAIN, f"{entry.unique_id}_start_charging")
+    await hass.services.async_call("button", "press", {"entity_id": start_id}, blocking=True)
+    coordinator = entry.runtime_data
+    mock_api["start"].assert_awaited_once_with(coordinator.scope, "replacement-card")
+    assert coordinator.command_trace["selection"] == {
+        "effective_card_matches_original": False,
+        "effective_card_available": True,
+        "submitted_card_matches_effective": True,
+        "card_source": "options",
+    }
+    assert await hass.config_entries.async_reload(entry.entry_id)
+    await hass.async_block_till_done()
+    trace = entry.runtime_data.command_trace
+    assert trace["stage"] == "interrupted"
+    assert trace["selection"]["effective_card_matches_original"] is False
+    mock_api["start"].assert_awaited_once()
+    assert entry.runtime_data.command["state"] == "idle"
+    key = f"{DOMAIN}.{entry.entry_id}.command"
+    await hass.config_entries.async_remove(entry.entry_id)
+    assert await Store(hass, 1, key).async_load() is None
+
+
+@pytest.mark.parametrize("outcome", ["not_confirmed", "confirmed", "poll_failed"])
+async def test_confirmation_evidence_and_restart(hass, mock_api, outcome):
+    from custom_components.blossom_energy import coordinator as coordinator_module
+
+    entry = await configure(hass)
+    coordinator = entry.runtime_data
+    await coordinator.async_prepare_command("start")
+    requested = datetime.now(UTC)
+    coordinator.command.update(action="start", state="pending", requested_at=requested)
+    if outcome == "confirmed":
+        mock_api["active"].return_value = [
+            {
+                "deviceStatus": "Charging",
+                "session": {
+                    "status": "IN_PROGRESS",
+                    "time_last_update": "2026-09-30T11:00:00Z",
+                    "token_uid": "SECRET",
+                    "customer_name": "SECRET",
+                },
+            }
+        ]
+    elif outcome == "poll_failed":
+        mock_api["active"].side_effect = ConnectionError("api_connection_failed")
+    with patch.object(
+        coordinator_module,
+        "asyncio",
+        SimpleNamespace(
+            sleep=AsyncMock(),
+            gather=asyncio.gather,
+            CancelledError=asyncio.CancelledError,
+        ),
+    ):
+        await coordinator._async_confirm_command("start", requested)
+    diagnostics = await async_get_config_entry_diagnostics(hass, entry)
+    trace = diagnostics["last_command_attempt"]
+    assert trace["stage"] == outcome
+    assert len(trace["polls"]) == (6 if outcome == "not_confirmed" else 1)
+    assert "SECRET" not in str(diagnostics)
+    if outcome == "poll_failed":
+        assert trace["polls"][0]["error"] == "ConnectionError"
+    else:
+        assert trace["polls"][-1]["active_session_count"] == (outcome == "confirmed")
+    mock_api["active"].side_effect = None
+    assert await hass.config_entries.async_reload(entry.entry_id)
+    assert entry.runtime_data.command_trace == trace
+
+
+async def test_diagnostic_storage_failure_does_not_block_start(hass, mock_api):
+    entry = await configure(hass)
+    registry = er.async_get(hass)
+    start_id = registry.async_get_entity_id("button", DOMAIN, f"{entry.unique_id}_start_charging")
+    with patch("homeassistant.helpers.storage.Store.async_save", new_callable=AsyncMock):
+        await hass.services.async_call("button", "press", {"entity_id": start_id}, blocking=True)
+    assert entry.runtime_data.command_trace["persistence_failed"] is True
+    mock_api["start"].assert_awaited_once()

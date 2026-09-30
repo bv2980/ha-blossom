@@ -1,7 +1,7 @@
 """Constants for the Blossom Energy integration."""
 
 DOMAIN = "blossom_energy"
-INTEGRATION_VERSION = "0.5.1"
+INTEGRATION_VERSION = "0.5.2"
 
 CONF_CARD_ID = "card_id"
 CONF_REFRESH_INTERVAL = "refresh_interval"

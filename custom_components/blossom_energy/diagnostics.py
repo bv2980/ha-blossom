@@ -2,6 +2,8 @@
 
 from homeassistant.components.diagnostics import async_redact_data
 
+from .command_diagnostics import safe_status
+
 REDACT = {
     "account_id",
     "member_id",
@@ -27,4 +29,21 @@ async def async_get_config_entry_diagnostics(hass, entry):
         "session_locations_enabled": coordinator.show_session_locations,
         "active_session_schema": data.get("active_session_schema", {}),
         "command_confirmation": data.get("command", {}),
+        "last_command_attempt": coordinator.command_trace,
+        "actual_refresh_interval_seconds": coordinator.update_interval.total_seconds(),
+        "last_full_refresh_at": data.get("updated_at"),
+        "active_session_details": {
+            key: safe_status(value) if key in ("device_status", "session_status") else value
+            for key, value in data.get("active_session_details", {}).items()
+            if key
+            in (
+                "device_status",
+                "session_status",
+                "last_update",
+                "start",
+                "energy_kwh",
+                "vehicle_current",
+                "vehicle_phases",
+            )
+        },
     }

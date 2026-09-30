@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.5.2
+
+- Send the card selected in options when starting a home charging session.
+- Retain the last command's HTTP status, duration and allowlisted response results.
+- Record each confirmation poll's timing, active-session count and safe status values.
+- Preserve the last attempt across restarts without replaying commands; mark unfinished
+  attempts as interrupted and remove their saved diagnostics when deleting the integration.
+- Include card-selection comparisons, active-session telemetry and the actual polling
+  interval in diagnostics. Never retain raw response text, tokens or identifiers.
+- Keep diagnostics storage failures from blocking charging commands.
+
 ## 0.5.1
 
 - Translate known active-session states such as `IN_PROGRESS` and `FINISHED`.

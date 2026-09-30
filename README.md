@@ -166,6 +166,34 @@ while an event is active; `Off` does not mean that historical events are missing
 
 ## Refresh and command strategy
 
+### Diagnosing remote-start failures (0.5.2)
+
+After one Start attempt, wait 2–3 minutes and download the integration diagnostics.
+The `last_command_attempt` section contains the request time, HTTP status and duration,
+safe response results, card-selection equality checks, and each confirmation poll.
+A successful HTTP response is not proof that the charger started; the response may
+contain an application-level rejection, and confirmation only checks session existence.
+
+Only the latest attempt is saved locally across restarts. An unfinished attempt is
+marked `interrupted`; it is never resent. The live command sensor resets to `idle`,
+while the historical attempt remains available in diagnostics. Removing the integration
+also deletes this saved attempt. A `persistence_failed` flag means it may not survive
+a restart.
+
+`active_session_details` includes safe charger/session states, session timestamps,
+energy, current and phases. `actual_refresh_interval_seconds` and `last_full_refresh_at`
+distinguish regular data refreshes from the separate confirmation checks.
+
+For detailed Home Assistant logs, enable debug logging for Blossom Energy in the
+integration menu before reproducing the issue, then disable it to download the log.
+The same sanitized command evidence is logged at debug level. Tokens, raw identifiers,
+free-text messages and raw response bodies are excluded; unknown result strings appear
+as `unrecognized`. Card IDs are compared using booleans, without publishing the IDs.
+Response inspection is capped at 16 KiB. No logging configuration change is needed
+to obtain the evidence in a diagnostics download.
+
+### Polling behavior
+
 | Situation | Behaviour |
 |---|---|
 | No active session | Configured idle interval, 15 minutes by default |

@@ -2,14 +2,17 @@
 
 import asyncio
 import logging
+from copy import deepcopy
 from datetime import timedelta
 
 from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers import issue_registry as ir
+from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
 
 from .api import AuthError, BlossomError, PermissionError, RateLimitError
+from .command_diagnostics import safe_status
 from .const import (
     CONF_CARD_ID,
     CONF_REFRESH_INTERVAL,
@@ -31,6 +34,11 @@ class BlossomCoordinator(DataUpdateCoordinator):
             key: entry.data[key] for key in ("member_id", "company_id", "installation_id")
         }
         self._command_task = None
+        self.command_lock = asyncio.Lock()
+        self.command_trace = {}
+        self._trace_store = Store(
+            hass, 1, f"{DOMAIN}.{entry.entry_id}.command", private=True, atomic_writes=True
+        )
         self.update_interval = timedelta(minutes=self.normal_refresh_interval)
         self.command = {
             "action": None,
@@ -44,6 +52,70 @@ class BlossomCoordinator(DataUpdateCoordinator):
     @property
     def card_id(self):
         return self.entry.options.get(CONF_CARD_ID, self.entry.data[CONF_CARD_ID])
+
+    async def async_load_command_trace(self):
+        """Restore historical evidence without replaying a command after restart."""
+        try:
+            saved = await self._trace_store.async_load()
+        except Exception:
+            self.command_trace = {"restore_failed": True}
+            _LOGGER.warning("Could not restore charging command diagnostics")
+            return
+        if isinstance(saved, dict):
+            self.command_trace = saved
+            if saved.get("stage") in ("requesting", "confirming"):
+                self.command_trace["stage"] = "interrupted"
+                await self._async_save_trace()
+
+    async def _async_save_trace(self):
+        try:
+            expected = deepcopy(self.command_trace)
+            await self._trace_store.async_save(expected)
+            stored = await Store(
+                self.hass,
+                1,
+                f"{DOMAIN}.{self.entry.entry_id}.command",
+                private=True,
+                atomic_writes=True,
+            ).async_load()
+            if stored != expected:
+                raise OSError("command_diagnostics_storage_failed")
+        except Exception:
+            self.command_trace["persistence_failed"] = True
+            _LOGGER.warning("Could not save charging command diagnostics")
+
+    async def async_prepare_command(self, action):
+        """Record intent before network IO; card equality never exposes identifiers."""
+        if self._command_task and not self._command_task.done():
+            self._command_task.cancel()
+            try:
+                await self._command_task
+            except asyncio.CancelledError:
+                pass
+        self.client.last_command_http = {}
+        self.command_trace = {
+            "action": action,
+            "requested_at": dt_util.utcnow().isoformat(),
+            "stage": "requesting",
+            "selection": {
+                "effective_card_matches_original": self.card_id == self.entry.data[CONF_CARD_ID],
+                "effective_card_available": (self.data or {}).get("selected_card_available"),
+                "submitted_card_matches_effective": True if action == "start" else None,
+                "card_source": "options" if CONF_CARD_ID in self.entry.options else "entry",
+            },
+            "polls": [],
+        }
+        await self._async_save_trace()
+
+    async def _async_record_trace(self, stage):
+        self.command_trace["stage"] = stage
+        self.command_trace["http"] = deepcopy(self.client.last_command_http)
+        self.command_trace["confirmation"] = {
+            key: value.isoformat() if hasattr(value, "isoformat") else value
+            for key, value in self.command.items()
+        }
+        _LOGGER.debug("Charging command evidence: %s", self.command_trace)
+        await self._async_save_trace()
 
     @property
     def normal_refresh_interval(self):
@@ -111,7 +183,7 @@ class BlossomCoordinator(DataUpdateCoordinator):
         """Expose a pending command and confirm it for at most one minute."""
         if self._command_task and not self._command_task.done():
             self._command_task.cancel()
-        requested = dt_util.utcnow()
+        requested = dt_util.parse_datetime(self.command_trace["requested_at"])
         self.command = {
             "action": action,
             "state": "pending",
@@ -120,6 +192,7 @@ class BlossomCoordinator(DataUpdateCoordinator):
             "confirmation_seconds": None,
             "poll_count": 0,
         }
+        await self._async_record_trace("confirming")
         data = dict(self.data)
         data["active_session"] = "starting" if action == "start" else "stopping"
         data["command"] = dict(self.command)
@@ -130,16 +203,17 @@ class BlossomCoordinator(DataUpdateCoordinator):
             eager_start=True,
         )
 
-    def async_record_command_failure(self, action):
+    async def async_record_command_failure(self, action):
         """Expose a rejected command without retaining exception details."""
         self.command = {
             "action": action,
             "state": "rejected",
-            "requested_at": dt_util.utcnow(),
+            "requested_at": dt_util.parse_datetime(self.command_trace["requested_at"]),
             "confirmed_at": None,
             "confirmation_seconds": None,
             "poll_count": 0,
         }
+        await self._async_record_trace("request_failed")
         data = dict(self.data)
         data["command"] = dict(self.command)
         self.async_set_updated_data(data)
@@ -180,7 +254,21 @@ class BlossomCoordinator(DataUpdateCoordinator):
         try:
             for poll_count in range(1, 7):
                 await asyncio.sleep(10)
-                active = bool(await self.client.active_sessions(self.scope))
+                poll = {"attempt": poll_count, "requested_at": dt_util.utcnow().isoformat()}
+                self.command_trace.setdefault("polls", []).append(poll)
+                try:
+                    rows = await self.client.active_sessions(self.scope)
+                except BlossomError as err:
+                    poll["error"] = type(err).__name__
+                    raise
+                finally:
+                    poll["completed_at"] = dt_util.utcnow().isoformat()
+                poll["active_session_count"] = len(rows)
+                summary = active_session_summary(rows)
+                poll["device_status"] = safe_status(summary.get("device_status"))
+                poll["session_status"] = safe_status(summary.get("session_status"))
+                poll["session_last_update"] = summary.get("last_update")
+                active = bool(rows)
                 self.command["poll_count"] = poll_count
                 if active == expected_active:
                     confirmed = dt_util.utcnow()
@@ -189,12 +277,15 @@ class BlossomCoordinator(DataUpdateCoordinator):
                         confirmed_at=confirmed,
                         confirmation_seconds=round((confirmed - requested).total_seconds()),
                     )
+                    await self._async_record_trace("confirmed")
                     await self.async_refresh()
                     return
+                await self._async_record_trace("confirming")
                 data = dict(self.data)
                 data["command"] = dict(self.command)
                 self.async_set_updated_data(data)
             self.command["state"] = "not_confirmed"
+            await self._async_record_trace("not_confirmed")
             data = dict(self.data)
             data["active_session"] = "active" if not expected_active else "inactive"
             data["command"] = dict(self.command)
@@ -203,13 +294,19 @@ class BlossomCoordinator(DataUpdateCoordinator):
             raise
         except BlossomError:
             self.command["state"] = "poll_failed"
+            await self._async_record_trace("poll_failed")
             data = dict(self.data)
+            data["active_session"] = "active" if data.get("active_session_details") else "inactive"
             data["command"] = dict(self.command)
             self.async_set_updated_data(data)
 
     async def async_shutdown(self):
         if self._command_task and not self._command_task.done():
             self._command_task.cancel()
+            try:
+                await self._command_task
+            except asyncio.CancelledError:
+                pass
         await super().async_shutdown()
 
 

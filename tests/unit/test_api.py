@@ -3,6 +3,7 @@
 import asyncio
 import base64
 import hashlib
+import json
 import time
 from unittest.mock import AsyncMock
 from urllib.parse import parse_qs, urlsplit
@@ -15,6 +16,14 @@ from blossom_test_client import api
 class Response:
     def __init__(self, status=200, data=None, headers=None, error=None):
         self.status, self.data, self.headers, self.error = status, data, headers or {}, error
+        self.content = self
+        self.body = json.dumps(data).encode() if data is not None else b""
+
+    async def read(self, size=None):
+        if size is None:
+            return b"login form"
+        chunk, self.body = self.body[:size], self.body[size:]
+        return chunk
 
     async def __aenter__(self):
         await asyncio.sleep(0)
@@ -27,9 +36,6 @@ class Response:
 
     async def json(self):
         return self.data
-
-    async def read(self):
-        return b"login form"
 
 
 class Session:
